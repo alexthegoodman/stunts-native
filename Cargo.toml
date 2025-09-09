@@ -1,0 +1,14 @@
+[package]
+name = "stunts-native"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+stunts-engine = { path = "../stunts-engine" }
+gui-core = { path = "../commonui/gui-core" }
+gui-reactive = { path = "../commonui/gui-reactive" }
+vello = { path = "../vello" }
+wgpu = "0.19"
+winit = "0.29"
+tokio = { version = "1.0", features = ["full"] }
+bytemuck = "1.0"
