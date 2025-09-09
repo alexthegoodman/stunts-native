@@ -6,6 +6,9 @@ use vello::kurbo::{Circle, RoundedRect};
 use vello::{Scene, kurbo::Affine, ExternalResource};
 use wgpu::{Device, Queue, Buffer, RenderPipeline, VertexBufferLayout, BufferUsages, VertexAttribute, VertexFormat, VertexStepMode};
 use wgpu::util::DeviceExt;
+
+// TODO: replace from here through create_gpu_resources to integrate with pipeline.rs and make sure not to recreate pipeline on every frame
+
 // Vertex structure for our custom triangle
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
