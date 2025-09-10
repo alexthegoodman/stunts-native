@@ -27,6 +27,11 @@ mod render_integration;
 mod helpers;
 mod editor_state;
 
+#[derive(Debug, Clone)]
+enum Command {
+    AddSquarePolygon,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Stunts Native...");
 
@@ -49,9 +54,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let record = Arc::new(Mutex::new(Record::new()));
     let editor_state = Arc::new(Mutex::new(editor_state::EditorState::new(cloned_editor, record)));
         
-    // Create channel for communicating polygon creation requests from UI to main thread
-    let (polygon_tx, polygon_rx) = mpsc::channel::<PolygonConfig>();
-    let perc_button_1 = button("Add Square Polygon")
+    // Create channel for communicating commands from UI to main thread
+    let (command_tx, command_rx) = mpsc::channel::<Command>();
+    let button1 = button("Add Square Polygon")
         .with_width_perc(20.0)
         .with_height(40.0)
         .with_colors(
@@ -60,60 +65,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Color::rgba8(200, 80, 80, 255)
         )
         .on_click({
-            let tx = polygon_tx.clone();
-            move || {
-                let random_coords = helpers::utilities::get_random_coords(window_size);
-                let new_id = Uuid::new_v4();
-
-                let polygon_config = PolygonConfig {
-                    id: new_id,
-                    name: "Square".to_string(),
-                    points: vec![
-                        Point { x: 0.0, y: 0.0 },
-                        Point { x: 1.0, y: 0.0 },
-                        Point { x: 1.0, y: 1.0 },
-                        Point { x: 0.0, y: 1.0 },
-                    ],
-                    dimensions: (100.0, 100.0),
-                    position: Point {
-                        x: random_coords.0 as f32,
-                        y: random_coords.1 as f32,
-                    },
-                    border_radius: 0.0,
-                    fill: [1.0, 0.0, 0.0, 1.0], // Red color
-                    stroke: Stroke {
-                        fill: [0.0, 0.0, 0.0, 1.0], // Black border
-                        thickness: 2.0,
-                    },
-                    layer: -2,
-                };
-
-                println!("Sending polygon creation request for position: ({:?})", random_coords);
-                
-                // Send the polygon config through the channel to be processed on the main thread
-                if let Err(e) = tx.send(polygon_config) {
-                    println!("Failed to send polygon creation request: {}", e);
-                } else {
-                    println!("Polygon creation request sent successfully with ID: {}", new_id);
-                }
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
             }
         });
 
-    // let main_column = column()
-    //     // .with_size_perc(10.0, 80.0)
-    //     .with_size(1200.0, 800.0)
-    //     .with_main_axis_alignment(MainAxisAlignment::End)
-    //     .with_cross_axis_alignment(CrossAxisAlignment::End)
-    //     .with_child(Element::new_widget(Box::new(perc_button_1)))
-    //     .with_child(primary_canvas::create_render_placeholder()?);
+    let button2 = button("Add Motion Arrow")
+        .with_width_perc(20.0)
+        .with_height(40.0)
+        .with_colors(
+            Color::rgba8(255, 100, 100, 255),
+            Color::rgba8(255, 120, 120, 255),
+            Color::rgba8(200, 80, 80, 255)
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
+
+    let main_column = column()
+        .with_size(50.0, 800.0)
+        .with_main_axis_alignment(MainAxisAlignment::Start)
+        .with_cross_axis_alignment(CrossAxisAlignment::Start)
+        // TODO: investigate why widgets don't display when rendering deep in the tree, such as here
+        .with_child(Element::new_widget(Box::new(button1)))
+        .with_child(Element::new_widget(Box::new(button2)));
 
     let main_row = row()
-        .with_size(350.0, 800.0)
+        .with_size(350.0, 800.0) // TODO: investigate why setting this to 350 seems to give 350 width to the first child, although it does set items in a row
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // .with_gap(40.0)
-        // .with_child(main_column.into_container_element())
-        .with_child(Element::new_widget(Box::new(perc_button_1)))
+        .with_child(Element::new_widget(Box::new(main_column)))
         .with_child(primary_canvas::create_render_placeholder()?);
     
     let container = container()
@@ -148,26 +134,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         {
             let editor_for_render = editor.clone();
-            let polygon_rx_for_render = Arc::new(Mutex::new(polygon_rx));
+            let command_rx_for_render = Arc::new(Mutex::new(command_rx));
             let engine_handle_cache: RefCell<Option<render_integration::EngineHandle>> = RefCell::new(None);
             
             Arc::new(move |device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, external_resources: &[vello::ExternalResource<'_>], view: &wgpu::TextureView| -> Result<(), vello::Error> {
-                // Process any pending polygon creation requests from the UI thread
-                if let Ok(rx) = polygon_rx_for_render.try_lock() {
-                    while let Ok(polygon_config) = rx.try_recv() {
+                // Process any pending commands from the UI thread
+                if let Ok(rx) = command_rx_for_render.try_lock() {
+                    while let Ok(command) = rx.try_recv() {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
-                            println!("Processing polygon creation request from channel");
-                            let dummy_sequence_id = Uuid::new_v4();
+                            match command {
+                                Command::AddSquarePolygon => {
+                                    println!("Processing add square polygon command from channel");
+                                    let random_coords = helpers::utilities::get_random_coords(window_size);
+                                    let new_id = Uuid::new_v4();
 
-                            editor.add_polygon(
-                                polygon_config.clone(),
-                                polygon_config.name.clone(),
-                                polygon_config.id,
-                                dummy_sequence_id.to_string(),
-                            );
-                            println!("Polygon added to editor successfully: {}", polygon_config.id);
+                                    let polygon_config = PolygonConfig {
+                                        id: new_id,
+                                        name: "Square".to_string(),
+                                        points: vec![
+                                            Point { x: 0.0, y: 0.0 },
+                                            Point { x: 1.0, y: 0.0 },
+                                            Point { x: 1.0, y: 1.0 },
+                                            Point { x: 0.0, y: 1.0 },
+                                        ],
+                                        dimensions: (100.0, 100.0),
+                                        position: Point {
+                                            x: random_coords.0 as f32,
+                                            y: random_coords.1 as f32,
+                                        },
+                                        border_radius: 0.0,
+                                        fill: [1.0, 0.0, 0.0, 1.0], // Red color
+                                        stroke: Stroke {
+                                            fill: [0.0, 0.0, 0.0, 1.0], // Black border
+                                            thickness: 2.0,
+                                        },
+                                        layer: -2,
+                                    };
+
+                                    let dummy_sequence_id = Uuid::new_v4();
+                                    editor.add_polygon(
+                                        polygon_config.clone(),
+                                        polygon_config.name.clone(),
+                                        polygon_config.id,
+                                        dummy_sequence_id.to_string(),
+                                    );
+                                    println!("Square polygon added to editor successfully: {}", polygon_config.id);
+                                }
+                            }
                         } else {
-                            println!("Could not acquire editor lock during render, polygon not added");
+                            println!("Could not acquire editor lock during render, command not processed");
                         }
                     }
                 }
