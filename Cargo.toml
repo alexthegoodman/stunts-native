@@ -12,3 +12,5 @@ wgpu = "0.19"
 winit = "0.29"
 tokio = { version = "1.0", features = ["full"] }
 bytemuck = "1.0"
+uuid = { version = "1.8.0", features = ["v4"] }
+rand = "0.8.5"

@@ -10,11 +10,15 @@ use vello::{Scene, kurbo::Affine};
 use wgpu::{Device, Queue};
 use std::sync::{Arc, Mutex};
 use std::cell::RefCell;
+use std::sync::mpsc;
 use stunts_engine::{
-    editor::{Viewport, WindowSize, Editor},
+    editor::{Viewport, WindowSize, Editor, Point},
+    polygon::{PolygonConfig, Stroke},
     // editor_state::EditorState,
     // editor_utilities::EditorUtilities,
 };
+use uuid::Uuid;
+use rand::Rng;
 
 mod primary_canvas;
 mod pipeline;
@@ -33,49 +37,84 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         window_size.height as f32,
     )));
 
-    // // Create the editor state using the new split architecture
-    // let editor_state = EditorState::new(viewport.clone());
-    // let editor_utilities = EditorUtilities::new();
-    
-    // // Create the shared editor state
-    // let shared_editor_state = render_integration::create_editor_state(editor_state);
-    
-    // // Initialize the editor utilities (thread-local)
-    // render_integration::initialize_editor_utilities(editor_utilities);
-
     // let's try with the unified editor.rs
     let editor = Editor::new(viewport.clone());
     let editor = Arc::new(Mutex::new(editor));
-
-    
         
-    let perc_button_1 = button("50% Width")
-        .with_width_perc(50.0)
+    // Create channel for communicating polygon creation requests from UI to main thread
+    let (polygon_tx, polygon_rx) = mpsc::channel::<PolygonConfig>();
+    let perc_button_1 = button("Add Square Polygon")
+        .with_width_perc(20.0)
         .with_height(40.0)
         .with_colors(
             Color::rgba8(255, 100, 100, 255),
             Color::rgba8(255, 120, 120, 255),
             Color::rgba8(200, 80, 80, 255)
-        );
+        )
+        .on_click({
+            let tx = polygon_tx.clone();
+            move || {
+                let mut rng = rand::thread_rng();
+                let random_x = rng.gen_range(0..=800);
+                let random_y = rng.gen_range(0..=450);
+                let new_id = Uuid::new_v4();
 
-    let main_column = column()
-        .with_size_perc(30.0, 80.0)
-        .with_main_axis_alignment(MainAxisAlignment::Center)
-        .with_cross_axis_alignment(CrossAxisAlignment::Center)
-        .with_child(Element::new_widget(Box::new(perc_button_1)));
+                let polygon_config = PolygonConfig {
+                    id: new_id,
+                    name: "Square".to_string(),
+                    points: vec![
+                        Point { x: 0.0, y: 0.0 },
+                        Point { x: 1.0, y: 0.0 },
+                        Point { x: 1.0, y: 1.0 },
+                        Point { x: 0.0, y: 1.0 },
+                    ],
+                    dimensions: (100.0, 100.0),
+                    position: Point {
+                        x: random_x as f32,
+                        y: random_y as f32,
+                    },
+                    border_radius: 0.0,
+                    fill: [1.0, 0.0, 0.0, 1.0], // Red color
+                    stroke: Stroke {
+                        fill: [0.0, 0.0, 0.0, 1.0], // Black border
+                        thickness: 2.0,
+                    },
+                    layer: -2,
+                };
+
+                println!("Sending polygon creation request for position: ({}, {})", random_x, random_y);
+                
+                // Send the polygon config through the channel to be processed on the main thread
+                if let Err(e) = tx.send(polygon_config) {
+                    println!("Failed to send polygon creation request: {}", e);
+                } else {
+                    println!("Polygon creation request sent successfully with ID: {}", new_id);
+                }
+            }
+        });
+
+    // let main_column = column()
+    //     // .with_size_perc(10.0, 80.0)
+    //     .with_size(1200.0, 800.0)
+    //     .with_main_axis_alignment(MainAxisAlignment::End)
+    //     .with_cross_axis_alignment(CrossAxisAlignment::End)
+    //     .with_child(Element::new_widget(Box::new(perc_button_1)))
+    //     .with_child(primary_canvas::create_render_placeholder()?);
 
     let main_row = row()
         .with_size(1200.0, 800.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
-        .with_gap(40.0)
-        .with_child(main_column.into_container_element())
+        // .with_gap(40.0)
+        // .with_child(main_column.into_container_element())
+        .with_child(Element::new_widget(Box::new(perc_button_1)))
         .with_child(primary_canvas::create_render_placeholder()?);
     
     let container = container()
         .with_size(1200.0, 800.0) 
         .with_background_color(Color::rgba8(240, 240, 240, 255))
         // .with_padding(Padding::only(50.0, 0.0, 0.0, 0.0))
+        .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
         .with_child(main_row.into_container_element());
     
@@ -88,24 +127,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("Stunts".to_string())?
         .with_inner_size([window_size.width as i32, window_size.height as i32])?
         .with_root(root)?;
-        // .with_custom_render({
-        //     let editor_for_render = shared_editor_state.clone();
-        //     move |device, queue, view, width, height| {
-        //         render_integration::render_stunts_content(&editor_for_render, device, queue, view, width, height)
-        //     }
-        // })
-        // .on_resume(move |device, queue| {
-        //     println!("App resumed, initializing pipeline with GPU resources...");
-            
-        //     // Create GPU resources from commonui device and queue
-        //     let gpu_resources = stunts_engine::gpu_resources::GpuResources::from_commonui(device, queue);
-        //     let gpu_resources = Arc::new(gpu_resources);
-            
-        //     // Set up GPU resources for rendering integration
-        //     render_integration::set_gpu_resources(gpu_resources);
-            
-        //     println!("GPU resources initialized for stunts rendering");
-        // });
 
     // Use the new run_with_editor_state method that avoids Send + Sync constraints
     app.run_with_editor_state(
@@ -121,9 +142,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         {
             let editor_for_render = editor.clone();
+            let polygon_rx_for_render = Arc::new(Mutex::new(polygon_rx));
             let engine_handle_cache: RefCell<Option<render_integration::EngineHandle>> = RefCell::new(None);
             
             Arc::new(move |device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, external_resources: &[vello::ExternalResource<'_>], view: &wgpu::TextureView| -> Result<(), vello::Error> {
+                // Process any pending polygon creation requests from the UI thread
+                if let Ok(rx) = polygon_rx_for_render.try_lock() {
+                    while let Ok(polygon_config) = rx.try_recv() {
+                        if let Ok(mut editor) = editor_for_render.try_lock() {
+                            println!("Processing polygon creation request from channel");
+                            let random_id = Uuid::new_v4();
+
+                            editor.add_polygon(
+                                polygon_config.clone(),
+                                polygon_config.name.clone(),
+                                polygon_config.id,
+                                random_id.to_string(),
+                            );
+                            println!("Polygon added to editor successfully: {}", polygon_config.id);
+                        } else {
+                            println!("Could not acquire editor lock during render, polygon not added");
+                        }
+                    }
+                }
+                
                 // Create engine handle lazily on first render (after pipeline is initialized)
                 let mut cache = engine_handle_cache.borrow_mut();
                 if cache.is_none() {
