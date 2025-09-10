@@ -14,3 +14,10 @@ tokio = { version = "1.0", features = ["full"] }
 bytemuck = "1.0"
 uuid = { version = "1.8.0", features = ["v4"] }
 rand = "0.8.5"
+undo = "0.51.0"
+chrono = { version = "0.4.38", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_with = "3.11.0"
+directories = "5.0.1"
+reqwest = { version = "0.12.12", features = ["json"] }

@@ -19,10 +19,13 @@ use stunts_engine::{
 };
 use uuid::Uuid;
 use rand::Rng;
+use undo::{Edit, Record};
 
 mod primary_canvas;
 mod pipeline;
 mod render_integration;
+mod helpers;
+mod editor_state;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Stunts Native...");
@@ -40,6 +43,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let's try with the unified editor.rs
     let editor = Editor::new(viewport.clone());
     let editor = Arc::new(Mutex::new(editor));
+
+    // editor_state holds saved data, not active gpu data
+    let cloned_editor = Arc::clone(&editor);
+    let record = Arc::new(Mutex::new(Record::new()));
+    let editor_state = Arc::new(Mutex::new(editor_state::EditorState::new(cloned_editor, record)));
         
     // Create channel for communicating polygon creation requests from UI to main thread
     let (polygon_tx, polygon_rx) = mpsc::channel::<PolygonConfig>();
@@ -54,9 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .on_click({
             let tx = polygon_tx.clone();
             move || {
-                let mut rng = rand::thread_rng();
-                let random_x = rng.gen_range(0..=800);
-                let random_y = rng.gen_range(0..=450);
+                let random_coords = helpers::utilities::get_random_coords(window_size);
                 let new_id = Uuid::new_v4();
 
                 let polygon_config = PolygonConfig {
@@ -70,8 +76,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ],
                     dimensions: (100.0, 100.0),
                     position: Point {
-                        x: random_x as f32,
-                        y: random_y as f32,
+                        x: random_coords.0 as f32,
+                        y: random_coords.1 as f32,
                     },
                     border_radius: 0.0,
                     fill: [1.0, 0.0, 0.0, 1.0], // Red color
@@ -82,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     layer: -2,
                 };
 
-                println!("Sending polygon creation request for position: ({}, {})", random_x, random_y);
+                println!("Sending polygon creation request for position: ({:?})", random_coords);
                 
                 // Send the polygon config through the channel to be processed on the main thread
                 if let Err(e) = tx.send(polygon_config) {
@@ -151,13 +157,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     while let Ok(polygon_config) = rx.try_recv() {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
                             println!("Processing polygon creation request from channel");
-                            let random_id = Uuid::new_v4();
+                            let dummy_sequence_id = Uuid::new_v4();
 
                             editor.add_polygon(
                                 polygon_config.clone(),
                                 polygon_config.name.clone(),
                                 polygon_config.id,
-                                random_id.to_string(),
+                                dummy_sequence_id.to_string(),
                             );
                             println!("Polygon added to editor successfully: {}", polygon_config.id);
                         } else {

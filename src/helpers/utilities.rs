@@ -1,9 +1,9 @@
 use std::{fs, path::PathBuf, sync::MutexGuard};
 
 use directories::{BaseDirs, UserDirs};
-use floem::reactive::RwSignal;
-use floem::reactive::SignalGet;
-use floem::reactive::SignalUpdate;
+// use floem::reactive::RwSignal;
+// use floem::reactive::SignalGet;
+// use floem::reactive::SignalUpdate;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -22,6 +22,7 @@ use stunts_engine::polygon::SavedPoint;
 use stunts_engine::polygon::SavedPolygonConfig;
 use stunts_engine::polygon::SavedStroke;
 use stunts_engine::timelines::SavedTimelineStateConfig;
+use stunts_engine::editor::WindowSize;
 use uuid::Uuid;
 
 use super::saved_state::ProjectData;
@@ -516,4 +517,15 @@ fn parse_motion_paths(
     }
 
     Ok(motion_paths)
+}
+
+use rand::Rng;
+
+pub fn get_random_coords(window_size: WindowSize) -> (u32, u32) {
+    let mut rng = rand::thread_rng();
+
+    let random_x = rng.gen_range(50..=(window_size.width - 50));
+    let random_y = rng.gen_range(50..=(window_size.height - 50));
+
+    (random_x, random_y)
 }
