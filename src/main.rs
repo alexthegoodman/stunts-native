@@ -1,9 +1,9 @@
 use gui_core::{App, Element};
 use gui_core::widgets::*;
-use gui_core::widgets::container::Padding;
+use gui_core::widgets::container::{Padding, Background};
 use gui_core::widgets::text::text_signal;
 use gui_reactive::Signal;
-use vello::peniko::Color;
+use vello::peniko::{Color, Gradient, GradientKind, ColorStops, Extend};
 use gui_core::widgets::canvas::canvas;
 use vello::kurbo::{Circle, RoundedRect};
 use vello::{Scene, kurbo::Affine};
@@ -53,16 +53,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cloned_editor = Arc::clone(&editor);
     let record = Arc::new(Mutex::new(Record::new()));
     let editor_state = Arc::new(Mutex::new(editor_state::EditorState::new(cloned_editor, record)));
-        
+
     // Create channel for communicating commands from UI to main thread
     let (command_tx, command_rx) = mpsc::channel::<Command>();
-    let button1 = button("Add Square Polygon")
-        .with_width_perc(20.0)
-        .with_height(40.0)
-        .with_colors(
-            Color::rgba8(255, 100, 100, 255),
-            Color::rgba8(255, 120, 120, 255),
-            Color::rgba8(200, 80, 80, 255)
+    // Create gradients for button1 states
+    let button_normal = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
+        .with_stops([Color::rgb8(75, 75, 80), Color::rgb8(60, 60, 65)]);
+    let button_hover = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
+        .with_stops([Color::rgb8(85, 85, 90), Color::rgb8(70, 70, 75)]);
+    let button_pressed = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
+        .with_stops([Color::rgb8(50, 50, 55), Color::rgb8(65, 65, 70)]);
+    
+    let button1 = button("Add Asset")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
+    
+    // turns on a mode in the editor so the user can draw arrows by clicking and dragging or dots by just clicking
+    let button2 = button("Add Motion")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal),
+            Background::Gradient(button_hover),
+            Background::Gradient(button_pressed)
         )
         .on_click({
             let tx = command_tx.clone();
@@ -71,44 +97,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-    let button2 = button("Add Motion Arrow")
-        .with_width_perc(20.0)
-        .with_height(40.0)
-        .with_colors(
-            Color::rgba8(255, 100, 100, 255),
-            Color::rgba8(255, 120, 120, 255),
-            Color::rgba8(200, 80, 80, 255)
-        )
-        .on_click({
-            let tx = command_tx.clone();
-            move || {                
-                tx.send(Command::AddSquarePolygon);
-            }
-        });
-
-    let main_column = column()
-        .with_size(50.0, 800.0)
+    let toolkit = row()
+        .with_size(400.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // FIXED: Added missing RowWidget positioning support in Element::position_child_element_static
         .with_child(Element::new_widget(Box::new(button1)))
         .with_child(Element::new_widget(Box::new(button2)));
 
-    let main_row = row()
-        .with_size(350.0, 800.0) // FIXED: Improved row layout to use intrinsic child sizes instead of equal distribution
+    let scaffolding = column()
+        .with_size(350.0, 50.0) // FIXED: Improved row layout to use intrinsic child sizes instead of equal distribution
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // .with_gap(40.0)
-        .with_child(main_column.into_container_element())
+        .with_child(toolkit.into_container_element())
         .with_child(primary_canvas::create_render_placeholder()?);
+    
+    // Create a radial gradient for container
+    let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
+        .with_stops([Color::rgb8(90, 90, 95), Color::rgb8(45, 45, 50)]);
     
     let container = container()
         .with_size(1200.0, 800.0) 
-        .with_background_color(Color::rgba8(240, 240, 240, 255))
+        .with_radial_gradient(container_gradient)
         // .with_padding(Padding::only(50.0, 0.0, 0.0, 0.0))
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        .with_child(main_row.into_container_element());
+        .with_child(scaffolding.into_container_element());
     
     let root = container.into_container_element();
 
