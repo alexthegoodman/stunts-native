@@ -5,6 +5,9 @@ use stunts_engine::editor::{Editor, Point, Viewport, WindowSize, WindowSizeShade
 use stunts_engine::vertex::Vertex;
 use stunts_engine::gpu_resources::GpuResources;
 use wgpu::util::DeviceExt;
+use stunts_engine::polygon::{Polygon, Stroke};
+use stunts_engine::editor::rgb_to_wgpu;
+use uuid::Uuid;
 
 pub fn init_pipeline(
     viewport: Arc<Mutex<Viewport>>,
@@ -290,36 +293,36 @@ pub fn init_pipeline(
 
     println!("Initialized...");
 
-    // let canvas_polygon = Polygon::new(
-    //     &window_size,
-    //     &gpu_resources.device,
-    //     &gpu_resources.queue,
-    //     &model_bind_group_layout,
-    //     &group_bind_group_layout,
-    //     &camera,
-    //     vec![
-    //         Point { x: 0.0, y: 0.0 },
-    //         Point { x: 1.0, y: 0.0 },
-    //         Point { x: 1.0, y: 1.0 },
-    //         Point { x: 0.0, y: 1.0 },
-    //     ],
-    //     (800.0 as f32, 450.0 as f32),
-    //     Point { x: 400.0, y: 225.0 },
-    //     0.0,
-    //     0.0,
-    //     [0.8, 0.8, 0.8, 1.0],
-    //     Stroke {
-    //         thickness: 0.0,
-    //         fill: rgb_to_wgpu(0, 0, 0, 1.0),
-    //     },
-    //     0.0,
-    //     -89, // camera far is -100
-    //     "canvas_background".to_string(),
-    //     Uuid::new_v4(),
-    //     Uuid::nil(),
-    // );
+    let canvas_polygon = Polygon::new(
+        &window_size,
+        &gpu_resources.device,
+        &gpu_resources.queue,
+        &model_bind_group_layout,
+        &group_bind_group_layout,
+        &camera,
+        vec![
+            Point { x: 0.0, y: 0.0 },
+            Point { x: 1.0, y: 0.0 },
+            Point { x: 1.0, y: 1.0 },
+            Point { x: 0.0, y: 1.0 },
+        ],
+        (800.0 as f32, 450.0 as f32),
+        Point { x: 400.0, y: 225.0 },
+        0.0,
+        0.0,
+        [0.8, 0.8, 0.8, 1.0],
+        Stroke {
+            thickness: 0.0,
+            fill: rgb_to_wgpu(0, 0, 0, 1.0),
+        },
+        0.0,
+        -89, // camera far is -100
+        "canvas_background".to_string(),
+        Uuid::new_v4(),
+        Uuid::nil(),
+    );
 
-    // editor.static_polygons.push(canvas_polygon);
+    editor_lock.static_polygons.push(canvas_polygon);
 
     let cursor_ring_dot = RingDot::new(
         &gpu_resources.device,

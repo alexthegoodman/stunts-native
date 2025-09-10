@@ -80,7 +80,8 @@ pub fn render_stunts_content(
         .lock()
         .unwrap();
 
-        let camera = editor_lock.camera.expect("Couldn't get camera");
+    let camera = editor_lock.camera.expect("Couldn't get camera");
+    let window_size = &camera.window_size;
 
     // Update animations before rendering
     editor_lock.step_video_animations(&camera, None);
@@ -90,7 +91,6 @@ pub fn render_stunts_content(
     if editor_lock.control_mode == ControlMode::Pan && editor_lock.is_panning {
         editor_lock.update_camera_binding();
     }
-
 
     let depth_view = editor_lock.depth_view.as_ref().expect("Couldn't get depth view");
 
@@ -119,9 +119,8 @@ pub fn render_stunts_content(
     // println!("Render frame...");
 
     // Render partial screen content
-    // render_pass.set_viewport(100.0, 100.0, 200.0, 200.0, 0.0, 1.0);
+    render_pass.set_viewport(90.0, 60.0, window_size.width as f32 - 180.0, window_size.height as f32 - 120.0, 0.0, 1.0);
     // render_pass.set_scissor_rect(100, 100, 200, 200);
-
     
     // Keep editor_lock alive for the entire render pass duration
     // This is the simplest solution - we accept that the editor is locked during rendering

@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .with_child(primary_canvas::create_render_placeholder()?);
 
     let main_row = row()
-        .with_size(1200.0, 800.0)
+        .with_size(350.0, 800.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // .with_gap(40.0)
