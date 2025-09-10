@@ -90,16 +90,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_size(50.0, 800.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
-        // TODO: investigate why widgets don't display when rendering deep in the tree, such as here
+        // FIXED: Added missing RowWidget positioning support in Element::position_child_element_static
         .with_child(Element::new_widget(Box::new(button1)))
         .with_child(Element::new_widget(Box::new(button2)));
 
     let main_row = row()
-        .with_size(350.0, 800.0) // TODO: investigate why setting this to 350 seems to give 350 width to the first child, although it does set items in a row
+        .with_size(350.0, 800.0) // FIXED: Improved row layout to use intrinsic child sizes instead of equal distribution
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // .with_gap(40.0)
-        .with_child(Element::new_widget(Box::new(main_column)))
+        .with_child(main_column.into_container_element())
         .with_child(primary_canvas::create_render_placeholder()?);
     
     let container = container()
