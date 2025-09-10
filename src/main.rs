@@ -13,13 +13,16 @@ use std::cell::RefCell;
 use std::sync::mpsc;
 use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point},
-    polygon::{PolygonConfig, Stroke},
-    // editor_state::EditorState,
-    // editor_utilities::EditorUtilities,
+};
+use stunts_engine::polygon::{
+    Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
 };
 use uuid::Uuid;
 use rand::Rng;
 use undo::{Edit, Record};
+use stunts_engine::{
+    animations::Sequence, timelines::SavedTimelineStateConfig,
+};
 
 mod primary_canvas;
 mod pipeline;
@@ -35,6 +38,8 @@ enum Command {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Stunts Native...");
 
+    
+
     let window_size = WindowSize {
         width: 1200,
         height: 800,
@@ -46,13 +51,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )));
 
     // let's try with the unified editor.rs
-    let editor = Editor::new(viewport.clone());
+    let mut editor = Editor::new(viewport.clone());
+
+    // dummy project
+    let project_id = Uuid::new_v4();
+    let destination_view = "scene".to_string();
+    let dummy_sequence_id = Uuid::new_v4();
+
+    editor.project_selected = Some(project_id.clone());
+    editor.current_view = destination_view.clone();
+
     let editor = Arc::new(Mutex::new(editor));
 
     // editor_state holds saved data, not active gpu data
     let cloned_editor = Arc::clone(&editor);
     let record = Arc::new(Mutex::new(Record::new()));
-    let editor_state = Arc::new(Mutex::new(editor_state::EditorState::new(cloned_editor, record)));
+    let mut editor_state = editor_state::EditorState::new(cloned_editor, record);
+
+    println!("Loading saved state...");
+
+    // let saved_state = load_project_state(uuid.clone().to_string())
+    //     .expect("Couldn't get Saved State");
+
+    let mut dummy_sequences = Vec::new();
+
+    dummy_sequences.push(Sequence  {
+        id: dummy_sequence_id.to_string(),
+        name: "Sequence 1".to_string(),
+        background_fill: None,
+        duration_ms: 20000,
+        active_polygons: Vec::new(),
+        polygon_motion_paths: Vec::new(),
+        active_text_items: Vec::new(),
+        active_image_items: Vec::new(),
+        active_video_items: Vec::new(),
+    });
+    
+    let saved_state = helpers::saved_state::SavedState {
+        id: project_id.to_string(),
+        // name: "New Project".to_string(),
+        sequences: dummy_sequences,
+        timeline_state: SavedTimelineStateConfig {
+            timeline_sequences: Vec::new(),
+        },
+    };
+    
+    editor_state.record_state.saved_state = Some(saved_state.clone());
+    
+    let editor_state = Arc::new(Mutex::new(editor_state));
 
     // Create channel for communicating commands from UI to main thread
     let (command_tx, command_rx) = mpsc::channel::<Command>();
@@ -98,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
     let toolkit = row()
-        .with_size(400.0, 50.0)
+        .with_size(250.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // FIXED: Added missing RowWidget positioning support in Element::position_child_element_static
@@ -149,6 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         {
             let editor_for_render = editor.clone();
+            let state_for_render = editor_state.clone();
             let command_rx_for_render = Arc::new(Mutex::new(command_rx));
             let engine_handle_cache: RefCell<Option<render_integration::EngineHandle>> = RefCell::new(None);
             
@@ -157,43 +204,101 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Ok(rx) = command_rx_for_render.try_lock() {
                     while let Ok(command) = rx.try_recv() {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
-                            match command {
-                                Command::AddSquarePolygon => {
-                                    println!("Processing add square polygon command from channel");
-                                    let random_coords = helpers::utilities::get_random_coords(window_size);
-                                    let new_id = Uuid::new_v4();
+                            if let Ok(mut editor_state) = state_for_render.try_lock() {
+                                match command {
+                                    Command::AddSquarePolygon => {
+                                        println!("Processing add square polygon command from channel");
+                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let new_id = Uuid::new_v4();
 
-                                    let polygon_config = PolygonConfig {
-                                        id: new_id,
-                                        name: "Square".to_string(),
-                                        points: vec![
-                                            Point { x: 0.0, y: 0.0 },
-                                            Point { x: 1.0, y: 0.0 },
-                                            Point { x: 1.0, y: 1.0 },
-                                            Point { x: 0.0, y: 1.0 },
-                                        ],
-                                        dimensions: (100.0, 100.0),
-                                        position: Point {
-                                            x: random_coords.0 as f32,
-                                            y: random_coords.1 as f32,
-                                        },
-                                        border_radius: 0.0,
-                                        fill: [1.0, 0.0, 0.0, 1.0], // Red color
-                                        stroke: Stroke {
-                                            fill: [0.0, 0.0, 0.0, 1.0], // Black border
-                                            thickness: 2.0,
-                                        },
-                                        layer: -2,
-                                    };
+                                        let polygon_config = PolygonConfig {
+                                            id: new_id,
+                                            name: "Square".to_string(),
+                                            points: vec![
+                                                Point { x: 0.0, y: 0.0 },
+                                                Point { x: 1.0, y: 0.0 },
+                                                Point { x: 1.0, y: 1.0 },
+                                                Point { x: 0.0, y: 1.0 },
+                                            ],
+                                            dimensions: (100.0, 100.0),
+                                            position: Point {
+                                                x: random_coords.0 as f32,
+                                                y: random_coords.1 as f32,
+                                            },
+                                            border_radius: 0.0,
+                                            fill: [1.0, 0.0, 0.0, 1.0], // Red color
+                                            stroke: Stroke {
+                                                fill: [0.0, 0.0, 0.0, 1.0], // Black border
+                                                thickness: 2.0,
+                                            },
+                                            layer: -2,
+                                        };
 
-                                    let dummy_sequence_id = Uuid::new_v4();
-                                    editor.add_polygon(
-                                        polygon_config.clone(),
-                                        polygon_config.name.clone(),
-                                        polygon_config.id,
-                                        dummy_sequence_id.to_string(),
-                                    );
-                                    println!("Square polygon added to editor successfully: {}", polygon_config.id);
+                                        
+                                        editor.add_polygon(
+                                            polygon_config.clone(),
+                                            polygon_config.name.clone(),
+                                            polygon_config.id,
+                                            dummy_sequence_id.to_string(),
+                                        );
+
+                                        editor_state.add_saved_polygon(
+                                            dummy_sequence_id.to_string(),
+                                            SavedPolygonConfig {
+                                                id: polygon_config.id.to_string().clone(),
+                                                name: polygon_config.name.clone(),
+                                                dimensions: (
+                                                    polygon_config.dimensions.0 as i32,
+                                                    polygon_config.dimensions.1 as i32,
+                                                ),
+                                                fill: [
+                                                    polygon_config.fill[0] as i32,
+                                                    polygon_config.fill[1] as i32,
+                                                    polygon_config.fill[2] as i32,
+                                                    polygon_config.fill[3] as i32,
+                                                ],
+                                                border_radius: polygon_config.border_radius as i32, // multiply by 100?
+                                                position: SavedPoint {
+                                                    x: polygon_config.position.x as i32,
+                                                    y: polygon_config.position.y as i32,
+                                                },
+                                                stroke: SavedStroke {
+                                                    thickness: polygon_config.stroke.thickness as i32,
+                                                    fill: [
+                                                        polygon_config.stroke.fill[0] as i32,
+                                                        polygon_config.stroke.fill[1] as i32,
+                                                        polygon_config.stroke.fill[2] as i32,
+                                                        polygon_config.stroke.fill[3] as i32,
+                                                    ],
+                                                },
+                                                layer: polygon_config.layer.clone(),
+                                            },
+                                        );
+
+                                        let saved_state = editor_state
+                                            .record_state
+                                            .saved_state
+                                            .as_ref()
+                                            .expect("Couldn't get saved state");
+                                        let updated_sequence = saved_state
+                                            .sequences
+                                            .iter()
+                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .expect("Couldn't get updated sequence");
+                                        
+                                        let sequence_cloned = updated_sequence.clone();
+                                        
+                                        // drop(editor_state);
+
+                                        // let mut editor = editor_cloned.lock().unwrap();
+
+                                        editor.current_sequence_data = Some(sequence_cloned.clone());
+                                        editor.update_motion_paths(&sequence_cloned);
+                                        
+                                        // drop(editor);
+
+                                        println!("Square polygon added to editor successfully: {}", polygon_config.id);
+                                    }
                                 }
                             }
                         } else {
