@@ -395,7 +395,6 @@ fn handle_cursor_moved(
                 positionX as f32,
                 positionY as f32,
             );
-            // TODO: need callback for when cursor is done moving, then add translation to undo stack
         },
     ))
 }

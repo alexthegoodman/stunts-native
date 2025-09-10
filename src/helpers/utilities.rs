@@ -53,7 +53,7 @@ pub fn get_ground_truth_dir() -> Option<PathBuf> {
     })
 }
 
-// TODO: put images and videos and exports in separate project folders
+// later on, put images and videos and exports in separate project folders
 pub fn get_images_dir() -> PathBuf {
     let main_dir = get_ground_truth_dir().expect("Couldn't check or create Stunts directory");
     let images_dir = main_dir.join("images");
@@ -97,29 +97,6 @@ pub fn get_captures_dir() -> PathBuf {
 
     captures_dir
 }
-
-// pub fn load_ground_truth_state() -> Result<SavedState, Box<dyn std::error::Error>> {
-//     let sync_dir = get_ground_truth_dir().expect("Couldn't get Stunts directory");
-//     // let project_dir = sync_dir.join("midpoint/projects").join(project_id);
-//     let json_path = sync_dir.join("motion_path_data.json");
-
-//     if !json_path.exists() {
-//         // TODO: create json file if it doesn't exist
-//         let json = SavedState {
-//             sequences: Vec::new(),
-//         };
-
-//         let json = serde_json::to_string_pretty(&json).expect("Couldn't serialize saved state");
-
-//         fs::write(&json_path, json).expect("Couldn't write saved state");
-//     }
-
-//     // Read and parse the JSON file
-//     let json_content = fs::read_to_string(json_path)?;
-//     let state: SavedState = serde_json::from_str(&json_content)?;
-
-//     Ok(state)
-// }
 
 pub fn load_projects_datafile() -> Result<ProjectsDataFile, Box<dyn std::error::Error>> {
     let sync_dir = get_ground_truth_dir().expect("Couldn't get Stunts directory");
