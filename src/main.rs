@@ -428,6 +428,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     }
     // });
 
+    let display_motion_form = Signal::new(false);
+
     // Create gradients for button1 states
     let button_normal = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
         .with_stops([Color::rgb8(75, 75, 80), Color::rgb8(60, 60, 65)]);
@@ -463,11 +465,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Background::Gradient(button_pressed)
         )
         .on_click({
+            let display_motion_form = display_motion_form.clone();
             let tx = command_tx.clone();
             move || {                
-                tx.send(Command::AddMotion);
+                display_motion_form.set(!display_motion_form.get());
+                // tx.send(Command::AddMotion);
             }
         });
+
+    let motion_text = Signal::new("I can be toggled on/off!".to_string());
+    let motion_form = container()
+        .with_size(300.0, 100.0)
+        .with_background_color(Color::rgba8(255, 200, 150, 200))
+        .with_border_radius(12.0)
+        .with_padding(Padding::all(15.0))
+        .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 100))
+        .with_display_signal(display_motion_form.clone())
+        .with_child(Element::new_widget(Box::new(
+            text_signal(motion_text.clone())
+                .with_font_size(14.0)
+                .with_color(Color::rgba8(100, 50, 0, 255))
+        )));
 
     let toolkit = row()
         .with_size(250.0, 50.0)
@@ -483,6 +501,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         // .with_gap(40.0)
         .with_child(toolkit.into_container_element())
+        .with_child(motion_form.into_container_element())
         .with_child(primary_canvas::create_render_placeholder()?);
     
     // Create a radial gradient for container
