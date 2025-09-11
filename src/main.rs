@@ -37,6 +37,7 @@ mod editor_state;
 #[derive(Debug, Clone)]
 enum Command {
     AddSquarePolygon,
+    AddMotion,
 }
 
 // NOTE: these handlers are tied to winit events, the other ones are tied to the editor
@@ -67,7 +68,6 @@ fn handle_cursor_moved(
                     positionX as f32,
                     positionY as f32,
                 );
-                // TODO: need callback for when cursor is done moving, then add translation to undo stack
             }
         },
     ))
@@ -465,7 +465,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .on_click({
             let tx = command_tx.clone();
             move || {                
-                tx.send(Command::AddSquarePolygon);
+                tx.send(Command::AddMotion);
             }
         });
 
@@ -608,6 +608,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
                             if let Ok(mut editor_state) = state_for_render.try_lock() {
                                 match command {
+                                    Command::AddMotion => {
+                                        println!("Processing add motion command from channel");
+                                        editor.motion_mode = true;
+                                        println!("Motion mode enabled - user can now place arrows by clicking and dragging");
+                                    }
                                     Command::AddSquarePolygon => {
                                         println!("Processing add square polygon command from channel");
                                         let random_coords = helpers::utilities::get_random_coords(window_size);

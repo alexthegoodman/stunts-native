@@ -363,6 +363,27 @@ pub fn render_stunts_content(
         }
     }
 
+    // draw motion arrows
+    for motion_arrow in editor_lock.motion_arrows.iter() {
+        if !motion_arrow.hidden {
+            if editor_lock.motion_mode {
+                motion_arrow.transform.update_uniform_buffer(
+                    &queue,
+                    &camera.window_size,
+                );
+            }
+
+            render_pass.set_bind_group(1, &motion_arrow.bind_group, &[]);
+            render_pass.set_bind_group(3, &motion_arrow.group_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, motion_arrow.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(
+                motion_arrow.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
+            );
+            render_pass.draw_indexed(0..motion_arrow.indices.len() as u32, 0, 0..1);
+        }
+    }
+
     if let Some(dot) = &editor_lock.cursor_dot {
         dot.transform
             .update_uniform_buffer(&queue, &camera.window_size);
