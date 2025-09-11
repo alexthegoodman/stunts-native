@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use stunts_engine::camera::{Camera, CameraBinding};
+use stunts_engine::camera::{Camera3D as Camera, CameraBinding};
 use stunts_engine::dot::RingDot;
 use stunts_engine::editor::{Editor, Point, Viewport, WindowSize, WindowSizeShader};
 use stunts_engine::vertex::Vertex;
@@ -315,8 +315,8 @@ pub fn init_pipeline(
             thickness: 0.0,
             fill: rgb_to_wgpu(0, 0, 0, 1.0),
         },
-        0.0,
-        -89, // camera far is -100
+        // 0.0,
+        1, // camera far is -100
         "canvas_background".to_string(),
         Uuid::new_v4(),
         Uuid::nil(),

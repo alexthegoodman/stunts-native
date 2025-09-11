@@ -525,8 +525,8 @@ use rand::Rng;
 pub fn get_random_coords(window_size: WindowSize) -> (u32, u32) {
     let mut rng = rand::thread_rng();
 
-    let random_x = rng.gen_range(50..=(window_size.width - 50));
-    let random_y = rng.gen_range(50..=(window_size.height - 50));
+    let random_x = rng.gen_range(150..=(window_size.width - 150));
+    let random_y = rng.gen_range(150..=(window_size.height - 150));
 
     (random_x, random_y)
 }

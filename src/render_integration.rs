@@ -119,7 +119,7 @@ pub fn render_stunts_content(
     // println!("Render frame...");
 
     // Render partial screen content
-    render_pass.set_viewport(90.0, 60.0, window_size.width as f32 - 180.0, window_size.height as f32 - 120.0, 0.0, 1.0);
+    // render_pass.set_viewport(90.0, 60.0, window_size.width as f32 - 180.0, window_size.height as f32 - 120.0, 0.0, 1.0);
     // render_pass.set_scissor_rect(100, 100, 200, 200);
     
     // Keep editor_lock alive for the entire render pass duration
@@ -164,6 +164,7 @@ pub fn render_stunts_content(
 
     // draw motion path static polygons, using motion path transform
     for (path_index, path) in editor_lock.motion_paths.iter().enumerate() {
+        // println!("motion path layer {:?}", path.transform.layer);
         // uniform buffers are pricier, no reason to over-update when idle
         if let Some(dragging_id) = editor_lock.dragging_path {
             if dragging_id == path.id {
@@ -175,6 +176,7 @@ pub fn render_stunts_content(
         render_pass.set_bind_group(3, &path.bind_group, &[]);
 
         for (poly_index, polygon) in path.static_polygons.iter().enumerate() {
+            // println!("motion polygon layer {:?}", polygon.transform.layer);
             // uniform buffers are pricier, no reason to over-update when idle
             if let Some(dragging_id) = editor_lock.dragging_path_handle {
                 if dragging_id == polygon.id {
