@@ -391,10 +391,12 @@ pub fn render_stunts_content(
 
     // draw resize handles (always on top)
     for resize_handle in editor_lock.resize_handles.iter() {
-        resize_handle.polygon.transform.update_uniform_buffer(
-            &queue,
-            &camera.window_size,
-        );
+        if let Some(dragging_id) = editor_lock.dragging_polygon {
+            resize_handle.polygon.transform.update_uniform_buffer(
+                &queue,
+                &camera.window_size,
+            );
+        }
 
         render_pass.set_bind_group(1, &resize_handle.polygon.bind_group, &[]);
         render_pass.set_bind_group(3, &resize_handle.polygon.group_bind_group, &[]);
