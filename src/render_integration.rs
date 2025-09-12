@@ -389,6 +389,23 @@ pub fn render_stunts_content(
         }
     }
 
+    // draw resize handles (always on top)
+    for resize_handle in editor_lock.resize_handles.iter() {
+        resize_handle.polygon.transform.update_uniform_buffer(
+            &queue,
+            &camera.window_size,
+        );
+
+        render_pass.set_bind_group(1, &resize_handle.polygon.bind_group, &[]);
+        render_pass.set_bind_group(3, &resize_handle.polygon.group_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, resize_handle.polygon.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(
+            resize_handle.polygon.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint32,
+        );
+        render_pass.draw_indexed(0..resize_handle.polygon.indices.len() as u32, 0, 0..1);
+    }
+
     if let Some(dot) = &editor_lock.cursor_dot {
         dot.transform
             .update_uniform_buffer(&queue, &camera.window_size);
