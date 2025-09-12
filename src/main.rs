@@ -644,7 +644,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_color(Color::rgba8(100, 50, 0, 255))
                 )))
                 .with_child(Element::new_widget(Box::new(
-                    text("Description:")
+                    text("Object Description:")
                         .with_font_size(12.0)
                         .with_color(Color::rgba8(80, 40, 0, 255))
                 )))
@@ -652,7 +652,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     input()
                         .with_width(350.0)
                         .with_height(30.0)
-                        .with_placeholder("Describe what is being animated")
+                        .with_placeholder("ex. a basketball")
                         // .with_signal(description_text.clone())
                         .on_change({
                             let description_text = description_text.clone();
@@ -663,7 +663,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         })
                 )))
                 .with_child(Element::new_widget(Box::new(
-                    text("Position (x,y):")
+                    text("Position:")
                         .with_font_size(12.0)
                         .with_color(Color::rgba8(80, 40, 0, 255))
                 )))
@@ -671,7 +671,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     input()
                         .with_width(350.0)
                         .with_height(30.0)
-                        .with_placeholder("e.g., 100,200")
+                        .with_placeholder("ex. bounces up and down")
                         // .with_signal(position_text.clone())
                         .on_change({
                             let position_text = position_text.clone();
@@ -690,7 +690,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     input()
                         .with_width(350.0)
                         .with_height(30.0)
-                        .with_placeholder("e.g., 1.5")
+                        .with_placeholder("ex. scales to fullscreen")
                         // .with_signal(scale_text.clone())
                         .on_change({
                             let scale_text = scale_text.clone();
@@ -709,7 +709,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     input()
                         .with_width(350.0)
                         .with_height(30.0)
-                        .with_placeholder("e.g., 0.8")
+                        .with_placeholder("ex. fades in")
                         // .with_signal(opacity_text.clone())
                         .on_change({
                             let opacity_text = opacity_text.clone();
