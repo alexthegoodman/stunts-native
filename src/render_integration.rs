@@ -80,6 +80,11 @@ pub fn render_stunts_content(
         .lock()
         .unwrap();
 
+    // If canvas is hidden, skip all rendering
+    if editor_lock.canvas_hidden {
+        return Ok(());
+    }
+
     let camera = editor_lock.camera.expect("Couldn't get camera");
     let window_size = &camera.window_size;
 
