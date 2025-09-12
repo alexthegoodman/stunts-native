@@ -253,91 +253,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create channel for API responses
     let (api_response_tx, api_response_rx) = mpsc::channel::<stunts_engine::animations::AnimationData>();
 
-    // NOTE: these handlers get attached to editor (the other ones above get attached to winit events)
-    // let on_path_mouse_up: Arc<OnPathMouseUp> = Arc::new({
-    //     let editor_state = editor_state.clone();
-
-    //     move || {
-    //         let editor_state = editor_state.clone();
-
-    //         Some(Box::new(move |path_id: Uuid, point: Point| {
-    //             // cannot lock editor here! probably because called from Editor
-
-    //             // println!("Updating path... {:?} {:?}", path_id, point);
-
-    //             // if (!sequence_selected.get()) {
-    //             //     return (selected_sequence_data.get(), selected_keyframes.get());
-    //             // }
-
-    //             // let mut selected_sequence = selected_sequence_data.get();
-
-    //             // // update selected sequence data with new path data
-    //             // selected_sequence
-    //             //     .polygon_motion_paths
-    //             //     .iter_mut()
-    //             //     .for_each(|p| {
-    //             //         if p.id == path_id.to_string() {
-    //             //             p.position = [point.x as i32, point.y as i32];
-    //             //         }
-    //             //     });
-
-    //             // selected_sequence_data.set(selected_sequence);
-
-    //             // // save to saved state
-    //             // if let Ok(mut animation_data) = animation_data_ref.lock() {
-    //             //     let mut editor_state = editor_state.lock().unwrap();
-    //             //     let saved_state = editor_state
-    //             //         .record_state
-    //             //         .saved_state
-    //             //         .as_ref()
-    //             //         .expect("Couldn't get Saved State");
-
-    //             //     let saved_animation_data = saved_state
-    //             //         .sequences
-    //             //         .iter()
-    //             //         .flat_map(|s| s.polygon_motion_paths.iter())
-    //             //         .find(|p| p.id == path_id.to_string());
-
-    //             //     if let Some(object_animation_data) = saved_animation_data {
-    //             //         let mut updated_animation_data = object_animation_data.clone();
-
-    //             //         updated_animation_data.position = [point.x as i32, point.y as i32];
-
-    //             //         animation_data.set(Some(updated_animation_data));
-    //             //     }
-
-    //             //     let mut new_saved_state = saved_state.clone();
-
-    //             //     new_saved_state.sequences.iter_mut().for_each(|s| {
-    //             //         if s.id == selected_sequence_id.get() {
-    //             //             s.polygon_motion_paths.iter_mut().for_each(|pm| {
-    //             //                 if pm.id == path_id.to_string() {
-    //             //                     pm.position = [point.x as i32, point.y as i32];
-    //             //                 }
-    //             //             });
-    //             //         }
-    //             //     });
-
-    //             //     editor_state.record_state.saved_state = Some(new_saved_state.clone());
-
-    //             //     save_saved_state_raw(new_saved_state);
-
-    //             //     println!("Path updated!");
-
-    //             //     drop(editor_state);
-    //             // }
-
-    //             // (selected_sequence_data.get(), selected_keyframes.get())
-
-    //             ()
-    //         })
-    //             as Box<dyn FnMut(Uuid, Point) -> (Sequence, Vec<UIKeyframe>)>)
-    //     }
-    // });
-
-    let display_motion_form = Signal::new(false);
-    let display_motion_loading = Signal::new(false);
-
     // Create gradients for button1 states
     let button_normal = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
         .with_stops([Color::rgb8(75, 75, 80), Color::rgb8(60, 60, 65)]);
@@ -345,40 +260,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_stops([Color::rgb8(85, 85, 90), Color::rgb8(70, 70, 75)]);
     let button_pressed = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
         .with_stops([Color::rgb8(50, 50, 55), Color::rgb8(65, 65, 70)]);
-    
-    let button1 = button("Add Asset")
-        .with_font_size(10.0)
-        .with_width(100.0)
-        .with_height(20.0)
-        .with_backgrounds(
-            Background::Gradient(button_normal.clone()),
-            Background::Gradient(button_hover.clone()),
-            Background::Gradient(button_pressed.clone())
-        )
-        .on_click({
-            let tx = command_tx.clone();
-            move || {                
-                tx.send(Command::AddSquarePolygon);
-            }
-        });
-    
-    // turns on a mode in the editor so the user can draw arrows by clicking and dragging or dots by just clicking
-    let button2 = button("Add Motion")
-        .with_font_size(10.0)
-        .with_width(100.0)
-        .with_height(20.0)
-        .with_backgrounds(
-            Background::Gradient(button_normal.clone()),
-            Background::Gradient(button_hover.clone()),
-            Background::Gradient(button_pressed.clone())
-        )
-        .on_click({
-            let display_motion_form = display_motion_form.clone();
-            let tx = command_tx.clone();
-            move || {
-                tx.send(Command::AddMotion);
-            }
-        });
+
+    let display_motion_form = Signal::new(false);
+    let display_motion_loading = Signal::new(false);
 
     let motion_text = Signal::new("Motion Direction".to_string());
     let description_text = Signal::new("".to_string());
@@ -513,34 +397,208 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_container_element()
         // ))
     );
+    
+    let button_square = button("Add Square")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
 
-    let toolkit = row()
-        .with_size(250.0, 50.0)
+    let button_text = button("Add Text")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
+
+    let button_image = button("Add Image")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
+
+    let button_video = button("Add Video")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
+
+    let button_capture = button("Capture Video")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {                
+                tx.send(Command::AddSquarePolygon);
+            }
+        });
+    
+    // turns on a mode in the editor so the user can draw arrows by clicking and dragging or dots by just clicking
+    let button2 = button("Add Motion")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {
+                tx.send(Command::AddMotion);
+            }
+        });
+
+    // optional button for regenerate each object according to its arrow (maybe too much at once? could batch it)
+    let button3 = button("Regenerate All")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {
+                tx.send(Command::AddMotion);
+            }
+        });
+
+    // export the video
+    let button4 = button("Export")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {
+                tx.send(Command::AddMotion);
+            }
+        });
+
+    // Play / pause the video
+    let button5 = button("Play / Pause")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let tx = command_tx.clone();
+            move || {
+                tx.send(Command::AddMotion);
+            }
+        });
+
+    let left_tools = row()
+        .with_size(1000.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
-        .with_child(Element::new_widget(Box::new(button1)))
-        .with_child(Element::new_widget(Box::new(button2)));
+        .with_child(Element::new_widget(Box::new(button2)))
+        .with_child(Element::new_widget(Box::new(button_square)))
+        .with_child(Element::new_widget(Box::new(button_text)))
+        .with_child(Element::new_widget(Box::new(button_image)))
+        .with_child(Element::new_widget(Box::new(button_video)))
+        .with_child(Element::new_widget(Box::new(button_capture)))
+        .with_child(Element::new_widget(Box::new(button3)))
+        .with_child(Element::new_widget(Box::new(button4)));
 
-    // let scaffolding = column()
-    //     .with_size(350.0, 50.0)
-    //     .with_main_axis_alignment(MainAxisAlignment::Start)
-    //     .with_cross_axis_alignment(CrossAxisAlignment::Start)
-    //     .with_child(toolkit.into_container_element())
-    //     .with_child(motion_form.into_container_element());
-    //     // .with_child(primary_canvas::create_render_placeholder()?);
+    // let right_tools = row()
+    //     .with_size(400.0, 50.0)
+    //     .with_main_axis_alignment(MainAxisAlignment::Start) // horiz
+    //     .with_cross_axis_alignment(CrossAxisAlignment::Start) // vert
+    //     .with_child(Element::new_widget(Box::new(button3)))
+    //     .with_child(Element::new_widget(Box::new(button4)));
+
+    let toolkit = row()
+        .with_size(1200.0, 50.0)
+        .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
+        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+        .with_child(left_tools.into_container_element());
+        // .with_child(right_tools.into_container_element());
+
+    let video_ctrls = row()
+        .with_size(1200.0, 50.0)
+        .with_main_axis_alignment(MainAxisAlignment::Center)
+        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+        .with_child(Element::new_widget(Box::new(button5)));
     
     // Create a radial gradient for container
     let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
         .with_stops([Color::rgb8(90, 90, 95), Color::rgb8(45, 45, 50)]);
+
+    let main_column = column()
+        .with_size(1200.0, 800.0) 
+        // .with_radial_gradient(container_gradient)
+        // .with_padding(Padding::all(20.0))
+        // .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
+        .with_child(toolkit.into_container_element())
+        .with_child(motion_form.into_container_element())
+        .with_child(primary_canvas::create_render_placeholder()?)
+        .with_child(video_ctrls.into_container_element());
     
     let container = container()
         .with_size(1200.0, 800.0) 
         .with_radial_gradient(container_gradient)
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        // .with_child(scaffolding.into_container_element());
-        .with_child(toolkit.into_container_element())
-        .with_child(motion_form.into_container_element());
+        .with_child(main_column.into_container_element());
     
     let root = container.into_container_element();
 
