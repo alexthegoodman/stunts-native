@@ -12,13 +12,18 @@ use std::sync::{Arc, Mutex};
 use std::cell::RefCell;
 use std::sync::mpsc;
 use std::time::Duration;
+use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader},
 };
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
 };
+use stunts_engine::st_image::{SavedStImageConfig, StImage, StImageConfig};
+use stunts_engine::st_video::{SavedStVideoConfig, StVideoConfig};
+use stunts_engine::text_due::{SavedTextRendererConfig, TextRenderer, TextRendererConfig};
 use uuid::Uuid;
 use rand::Rng;
 use undo::{Edit, Record};
@@ -40,6 +45,9 @@ mod event_handlers;
 #[derive(Debug, Clone)]
 enum Command {
     AddSquarePolygon,
+    AddText,
+    AddImage { file_path: String },
+    AddVideo { file_path: String },
     AddMotion,
     SubmitMotionForm {
         description: String,
@@ -426,7 +434,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .on_click({
             let tx = command_tx.clone();
             move || {                
-                tx.send(Command::AddSquarePolygon);
+                tx.send(Command::AddText);
             }
         });
 
@@ -441,8 +449,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .on_click({
             let tx = command_tx.clone();
-            move || {                
-                tx.send(Command::AddSquarePolygon);
+            move || {
+                // Spawn a task to handle the file dialog
+                let tx_clone = tx.clone();
+                tokio::spawn(async move {
+                    if let Some(file_path) = FileDialog::new()
+                        .add_filter("Images", &["png", "jpg", "jpeg", "gif", "bmp", "tiff", "webp"])
+                        .pick_file()
+                    {
+                        if let Some(path_str) = file_path.to_str() {
+                            let _ = tx_clone.send(Command::AddImage { 
+                                file_path: path_str.to_string() 
+                            });
+                        }
+                    }
+                });
             }
         });
 
@@ -457,8 +478,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .on_click({
             let tx = command_tx.clone();
-            move || {                
-                tx.send(Command::AddSquarePolygon);
+            move || {
+                // Spawn a task to handle the file dialog
+                let tx_clone = tx.clone();
+                tokio::spawn(async move {
+                    if let Some(file_path) = FileDialog::new()
+                        .add_filter("Videos", &["mp4", "avi", "mov", "mkv", "wmv", "flv", "webm", "m4v"])
+                        .pick_file()
+                    {
+                        if let Some(path_str) = file_path.to_str() {
+                            let _ = tx_clone.send(Command::AddVideo { 
+                                file_path: path_str.to_string() 
+                            });
+                        }
+                    }
+                });
             }
         });
 
@@ -872,6 +906,233 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         // drop(editor);
 
                                         println!("Square polygon added to editor successfully: {}", polygon_config.id);
+                                    }
+                                    Command::AddText => {
+                                        println!("Processing add text command from channel");
+                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let new_id = Uuid::new_v4();
+
+                                        let text_config = TextRendererConfig {
+                                            id: new_id,
+                                            name: "Text".to_string(),
+                                            text: "Sample Text".to_string(),
+                                            font_family: "Aleo".to_string(),
+                                            dimensions: (200.0, 50.0),
+                                            position: Point {
+                                                x: random_coords.0 as f32,
+                                                y: random_coords.1 as f32,
+                                            },
+                                            layer: 2,
+                                            color: [0, 0, 0, 255],
+                                            font_size: 24,
+                                            background_fill: [255, 255, 255, 255],
+                                        };
+
+                                        let window_size = WindowSize {
+                                            width: window_size.width,
+                                            height: window_size.height,
+                                        };
+
+                                        editor.add_text_item(
+                                            &window_size,
+                                            device,
+                                            queue,
+                                            text_config.clone(),
+                                            text_config.text.clone(),
+                                            new_id,
+                                            dummy_sequence_id.to_string(),
+                                        );
+
+                                        editor_state.add_saved_text_item(
+                                            dummy_sequence_id.to_string(),
+                                            SavedTextRendererConfig {
+                                                id: text_config.id.to_string(),
+                                                name: text_config.name.clone(),
+                                                text: text_config.text.clone(),
+                                                font_family: text_config.font_family.clone(),
+                                                dimensions: (text_config.dimensions.0 as i32, text_config.dimensions.1 as i32),
+                                                position: SavedPoint {
+                                                    x: text_config.position.x as i32,
+                                                    y: text_config.position.y as i32,
+                                                },
+                                                layer: text_config.layer,
+                                                color: text_config.color,
+                                                font_size: text_config.font_size,
+                                                background_fill: Some(text_config.background_fill),
+                                            },
+                                        );
+
+                                        let saved_state = editor_state
+                                            .record_state
+                                            .saved_state
+                                            .as_ref()
+                                            .expect("Couldn't get saved state");
+                                        let updated_sequence = saved_state
+                                            .sequences
+                                            .iter()
+                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .expect("Couldn't get updated sequence");
+                                        
+                                        let sequence_cloned = updated_sequence.clone();
+                                        
+                                        editor.current_sequence_data = Some(sequence_cloned.clone());
+                                        editor.update_motion_paths(&sequence_cloned);
+
+                                        println!("Text item added to editor successfully: {}", text_config.id);
+                                    }
+                                    Command::AddImage { file_path } => {
+                                        println!("Processing add image command from channel with file: {}", file_path);
+                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let new_id = Uuid::new_v4();
+                                        
+                                        // Extract filename for a better name
+                                        let filename = std::path::Path::new(&file_path)
+                                            .file_stem()
+                                            .and_then(|s| s.to_str())
+                                            .unwrap_or("Image");
+
+                                        let image_config = StImageConfig {
+                                            id: new_id.to_string(),
+                                            name: filename.to_string(),
+                                            path: file_path.clone(),
+                                            dimensions: (150, 150),
+                                            position: Point {
+                                                x: random_coords.0 as f32,
+                                                y: random_coords.1 as f32,
+                                            },
+                                            layer: 2,
+                                        };
+
+                                        let window_size = WindowSize {
+                                            width: window_size.width,
+                                            height: window_size.height,
+                                        };
+
+                                        editor.add_image_item(
+                                            &window_size,
+                                            device,
+                                            queue,
+                                            image_config.clone(),
+                                            &Path::new(&file_path.clone()),
+                                            new_id,
+                                            dummy_sequence_id.to_string(),
+                                        );
+
+                                        editor_state.add_saved_image_item(
+                                            dummy_sequence_id.to_string(),
+                                            SavedStImageConfig {
+                                                id: image_config.id.clone(),
+                                                name: image_config.name.clone(),
+                                                path: file_path,
+                                                dimensions: image_config.dimensions,
+                                                position: SavedPoint {
+                                                    x: image_config.position.x as i32,
+                                                    y: image_config.position.y as i32,
+                                                },
+                                                layer: image_config.layer,
+                                            },
+                                        );
+
+                                        let saved_state = editor_state
+                                            .record_state
+                                            .saved_state
+                                            .as_ref()
+                                            .expect("Couldn't get saved state");
+                                        let updated_sequence = saved_state
+                                            .sequences
+                                            .iter()
+                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .expect("Couldn't get updated sequence");
+                                        
+                                        let sequence_cloned = updated_sequence.clone();
+                                        
+                                        editor.current_sequence_data = Some(sequence_cloned.clone());
+                                        editor.update_motion_paths(&sequence_cloned);
+
+                                        println!("Image item added to editor successfully: {}", image_config.id);
+                                    }
+                                    Command::AddVideo { file_path } => {
+                                        println!("Processing add video command from channel with file: {}", file_path);
+                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let new_id = Uuid::new_v4();
+                                        
+                                        // Extract filename for a better name
+                                        let filename = std::path::Path::new(&file_path)
+                                            .file_stem()
+                                            .and_then(|s| s.to_str())
+                                            .unwrap_or("Video");
+
+                                        let video_config = StVideoConfig {
+                                            id: new_id.to_string(),
+                                            name: filename.to_string(),
+                                            path: file_path.clone(),
+                                            dimensions: (300, 200),
+                                            position: Point {
+                                                x: random_coords.0 as f32,
+                                                y: random_coords.1 as f32,
+                                            },
+                                            layer: 2,
+                                            mouse_path: None,
+                                        };
+
+                                        let window_size = WindowSize {
+                                            width: window_size.width,
+                                            height: window_size.height,
+                                        };
+
+                                        editor.add_video_item(
+                                            &window_size,
+                                            device,
+                                            queue,
+                                            video_config.clone(),
+                                            &Path::new(&file_path.clone()),
+                                            new_id,
+                                            dummy_sequence_id.to_string(),
+                                            None, // stored_mouse_positions
+                                            None, // stored_source_data
+                                        );
+
+                                        let source_duration_ms = editor
+                                            .video_items
+                                            .last()
+                                            .expect("Couldn't get latest video")
+                                            .source_duration_ms
+                                            .clone();
+
+                                        editor_state.add_saved_video_item(
+                                            dummy_sequence_id.to_string(),
+                                            SavedStVideoConfig {
+                                                id: video_config.id.clone(),
+                                                name: video_config.name.clone(),
+                                                path: file_path,
+                                                dimensions: video_config.dimensions,
+                                                position: SavedPoint {
+                                                    x: video_config.position.x as i32,
+                                                    y: video_config.position.y as i32,
+                                                },
+                                                layer: video_config.layer,
+                                                mouse_path: None,
+                                            },
+                                            source_duration_ms
+                                        );
+
+                                        let saved_state = editor_state
+                                            .record_state
+                                            .saved_state
+                                            .as_ref()
+                                            .expect("Couldn't get saved state");
+                                        let updated_sequence = saved_state
+                                            .sequences
+                                            .iter()
+                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .expect("Couldn't get updated sequence");
+                                        
+                                        let sequence_cloned = updated_sequence.clone();
+                                        
+                                        editor.current_sequence_data = Some(sequence_cloned.clone());
+                                        editor.update_motion_paths(&sequence_cloned);
+
+                                        println!("Video item added to editor successfully: {}", video_config.id);
                                     }
                                     Command::SubmitMotionForm { description, position, scale, opacity } => {
                                         println!("Processing motion form submission from channel");
