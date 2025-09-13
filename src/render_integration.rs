@@ -127,7 +127,8 @@ pub fn render_stunts_content(
     // Apply scissor clipping if sidebar is visible
     if sidebar_visible {
         let canvas_x = sidebar_width;
-        let canvas_width = window_size.width as f32 - sidebar_width;
+        let addt_space = 50.0;
+        let canvas_width = window_size.width as f32 - sidebar_width - addt_space;
         let canvas_height = window_size.height as f32;
         
         // Set viewport to exclude sidebar area
@@ -142,9 +143,9 @@ pub fn render_stunts_content(
         
         // Set scissor rect to clip canvas content
         render_pass.set_scissor_rect(
-            sidebar_width as u32,
+            sidebar_width as u32 + addt_space as u32,
             0,
-            (window_size.width as f32 - sidebar_width) as u32,
+            (window_size.width as f32 - sidebar_width - addt_space) as u32,
             window_size.height
         );
     }

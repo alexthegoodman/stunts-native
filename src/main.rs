@@ -652,18 +652,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sidebar_width,
     );
 
-
-
     let sidebar_inner = column()
         .with_size(sidebar_width, 750.0)
         .with_child(text_properties_widget);
 
-
     let property_sidebar = container()
         .absolute() // Position absolutely - won't affect layout flow
-        .with_position(50.0, 20.0) // Position at specific coordinates
+        .with_position(20.0, 50.0) // Position at specific coordinates
         .with_size(sidebar_width, 750.0)
         .with_background_color(Color::rgba8(45, 45, 50, 255))
+        .with_padding(Padding::only(25.0, 15.0, 25.0, 15.0))
         .with_display_signal(sidebar_visible.clone())
         .with_child(sidebar_inner.into_container_element());
     
