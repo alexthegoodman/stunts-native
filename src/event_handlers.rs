@@ -181,12 +181,11 @@ pub fn handle_window_resize(
 
         drop(editor_g);
 
-        // NOTE: reenable later
-        // let mut gpu_helper = gpu_helper.lock().unwrap();
-
-        // gpu_helper.recreate_depth_view(&gpu_resources, size.width, size.height);
-
-        // drop(gpu_helper);
+        // Recreate depth view with new window dimensions
+        let mut editor_g = editor.lock().unwrap();
+        if let Some(gpu_resources) = editor_g.gpu_resources.clone() {
+            editor_g.recreate_depth_view(&gpu_resources, size.width, size.height);
+        }
         }
     }))
 }
