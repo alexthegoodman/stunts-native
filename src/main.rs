@@ -43,6 +43,7 @@ mod render_integration;
 mod helpers;
 mod editor_state;
 mod event_handlers;
+mod text_properties;
 
 #[derive(Debug, Clone)]
 enum Command {
@@ -642,57 +643,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         .with_child(Element::new_widget(Box::new(button5)));
 
-    // Create property sidebar with sample font family dropdown
-    let font_options = vec![
-        DropdownOption::new("Actor", "Actor"),
-        DropdownOption::new("Aladin", "Aladin"),
-        DropdownOption::new("Aleo", "Aleo"),
-        DropdownOption::new("Amiko", "Amiko"),
-        DropdownOption::new("Ballet", "Ballet"),
-        DropdownOption::new("Basic", "Basic"),
-        DropdownOption::new("Bungee", "Bungee"),
-        DropdownOption::new("Caramel", "Caramel"),
-        DropdownOption::new("Cherish", "Cherish"),
-        DropdownOption::new("Coda", "Coda"),
-    ];
+    // Create text properties widget using the new manual implementation
+    let text_properties_widget = text_properties::create_text_properties_panel(
+        command_tx.clone(),
+        button_normal.clone(),
+        button_hover.clone(),
+        button_pressed.clone(),
+        sidebar_width,
+    );
 
-    let text_properties = PropertyGroup::new("Text Properties")
-        .with_property(PropertyDefinition::text("text_content", "Text", "Sample Text"))
-        .with_property(PropertyDefinition::dropdown("font_family", "Font Family", font_options, "Aleo"))
-        .with_property(PropertyDefinition::number("font_size", "Font Size", 24.0))
-        .with_property(PropertyDefinition::color("text_color", "Text Color", Color::rgba8(0, 0, 0, 255)));
 
-    let transform_properties = PropertyGroup::new("Transform")
-        .with_property(PropertyDefinition::number("position_x", "X Position", 0.0))
-        .with_property(PropertyDefinition::number("position_y", "Y Position", 0.0))
-        .with_property(PropertyDefinition::number("width", "Width", 200.0))
-        .with_property(PropertyDefinition::number("height", "Height", 50.0));
 
-    let inspector = property_inspector()
+    let sidebar_inner = column()
         .with_size(sidebar_width, 750.0)
-        .add_group(text_properties)
-        .add_group(transform_properties)
-        .on_property_change({
-            let tx = command_tx.clone();
-            move |key, value| {
-                println!("Property changed: {} = {:?}", key, value);
-                // For now, assume we're editing the last added text item
-                // In a real implementation, you'd track the selected object
-                if let Some(value_str) = match value {
-                    gui_core::widgets::property_inspector::PropertyValue::Text(s) => Some(s.clone()),
-                    gui_core::widgets::property_inspector::PropertyValue::Select(s) => Some(s.clone()),
-                    gui_core::widgets::property_inspector::PropertyValue::Number(n) => Some(n.to_string()),
-                    _ => None,
-                } {
-                    let _ = tx.send(Command::UpdateTextProperty {
-                        // text_id: "last_added".to_string(), // Placeholder - would need proper selection tracking
-                        property_key: key.to_string(),
-                        property_value: value_str,
-                    });
-                }
-            }
-        })
-        .into_property_inspector_element();
+        .with_child(text_properties_widget);
+
 
     let property_sidebar = container()
         .absolute() // Position absolutely - won't affect layout flow
@@ -700,7 +665,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_size(sidebar_width, 750.0)
         .with_background_color(Color::rgba8(45, 45, 50, 255))
         .with_display_signal(sidebar_visible.clone())
-        .with_child(inspector);
+        .with_child(sidebar_inner.into_container_element());
     
     // Create a radial gradient for container
     let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
