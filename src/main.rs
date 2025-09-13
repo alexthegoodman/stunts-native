@@ -668,37 +668,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_property(PropertyDefinition::number("width", "Width", 200.0))
         .with_property(PropertyDefinition::number("height", "Height", 50.0));
 
+    let inspector = property_inspector()
+        .with_size(sidebar_width, 750.0)
+        .add_group(text_properties)
+        .add_group(transform_properties)
+        .on_property_change({
+            let tx = command_tx.clone();
+            move |key, value| {
+                println!("Property changed: {} = {:?}", key, value);
+                // For now, assume we're editing the last added text item
+                // In a real implementation, you'd track the selected object
+                if let Some(value_str) = match value {
+                    gui_core::widgets::property_inspector::PropertyValue::Text(s) => Some(s.clone()),
+                    gui_core::widgets::property_inspector::PropertyValue::Select(s) => Some(s.clone()),
+                    gui_core::widgets::property_inspector::PropertyValue::Number(n) => Some(n.to_string()),
+                    _ => None,
+                } {
+                    let _ = tx.send(Command::UpdateTextProperty {
+                        // text_id: "last_added".to_string(), // Placeholder - would need proper selection tracking
+                        property_key: key.to_string(),
+                        property_value: value_str,
+                    });
+                }
+            }
+        })
+        .into_property_inspector_element();
+
     let property_sidebar = container()
+        .absolute() // Position absolutely - won't affect layout flow
+        .with_position(50.0, 20.0) // Position at specific coordinates
         .with_size(sidebar_width, 750.0)
         .with_background_color(Color::rgba8(45, 45, 50, 255))
         .with_display_signal(sidebar_visible.clone())
-        .with_child(
-            property_inspector()
-                .with_size(sidebar_width, 750.0)
-                .add_group(text_properties)
-                .add_group(transform_properties)
-                .on_property_change({
-                    let tx = command_tx.clone();
-                    move |key, value| {
-                        println!("Property changed: {} = {:?}", key, value);
-                        // For now, assume we're editing the last added text item
-                        // In a real implementation, you'd track the selected object
-                        if let Some(value_str) = match value {
-                            gui_core::widgets::property_inspector::PropertyValue::Text(s) => Some(s.clone()),
-                            gui_core::widgets::property_inspector::PropertyValue::Select(s) => Some(s.clone()),
-                            gui_core::widgets::property_inspector::PropertyValue::Number(n) => Some(n.to_string()),
-                            _ => None,
-                        } {
-                            let _ = tx.send(Command::UpdateTextProperty {
-                                // text_id: "last_added".to_string(), // Placeholder - would need proper selection tracking
-                                property_key: key.to_string(),
-                                property_value: value_str,
-                            });
-                        }
-                    }
-                })
-                .into_property_inspector_element()
-        );
+        .with_child(inspector);
     
     // Create a radial gradient for container
     let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
