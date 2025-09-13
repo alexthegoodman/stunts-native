@@ -533,7 +533,27 @@ impl Edit for ObjectEdit {
                 });
 
                 save_saved_state_raw(saved_state.clone());
-            } // ObjectProperty::Points(w) => {
+            }
+            ObjectProperty::FontFamily(new_font_family) => {
+                editor.update_text_property(
+                    self.object_id,
+                    ObjectProperty::FontFamily(new_font_family.clone())
+                );
+            }
+            ObjectProperty::FontSize(new_font_size) => {
+                editor.update_text_property(
+                    self.object_id,
+                    ObjectProperty::FontSize(new_font_size.clone())
+                );
+            }
+            ObjectProperty::Text(new_text_content) => {
+                editor.update_text_property(
+                    self.object_id,
+                    ObjectProperty::Text(new_text_content.clone())
+                );
+            }
+            
+            // ObjectProperty::Points(w) => {
               //     editor.update_polygon(self.object_id, "points", InputValue::Points(w.clone()));
               // }
         }
@@ -947,7 +967,28 @@ impl Edit for ObjectEdit {
                 });
 
                 save_saved_state_raw(saved_state.clone());
-            } // ObjectProperty::Points(w) => {
+            } 
+            
+            ObjectProperty::FontFamily(new_font_family) => {
+                editor.update_text_property(
+                    self.object_id,
+                    ObjectProperty::FontFamily(new_font_family.clone())
+                );
+            }
+            ObjectProperty::FontSize(new_font_size) => {
+                editor.update_text_property(
+                    self.object_id,
+                    ObjectProperty::FontSize(new_font_size.clone())
+                );
+            }
+            ObjectProperty::Text(new_text_content) => {
+                editor.update_text_property(
+                    self.object_id,
+                    ObjectProperty::Text(new_text_content.clone())
+                );
+            }
+
+            // ObjectProperty::Points(w) => {
               //     editor.update_polygon(self.object_id, "points", InputValue::Points(w.clone()));
               // }
         }

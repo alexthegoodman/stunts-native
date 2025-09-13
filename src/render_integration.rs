@@ -74,7 +74,10 @@ pub fn render_stunts_content(
     encoder: &mut wgpu::CommandEncoder,
     external_resources: &[vello::ExternalResource<'_>],
     // texture / view
-    view: &wgpu::TextureView
+    view: &wgpu::TextureView,
+    // sidebar visibility for scissor clipping
+    sidebar_visible: bool,
+    sidebar_width: f32,
 ) -> Result<(), vello::Error> {
     let mut editor_lock = engine_handle.editor
         .lock()
@@ -121,11 +124,30 @@ pub fn render_stunts_content(
         occlusion_query_set: None,
     });
 
-    // println!("Render frame...");
-
-    // Render partial screen content
-    // render_pass.set_viewport(90.0, 60.0, window_size.width as f32 - 180.0, window_size.height as f32 - 120.0, 0.0, 1.0);
-    // render_pass.set_scissor_rect(100, 100, 200, 200);
+    // Apply scissor clipping if sidebar is visible
+    if sidebar_visible {
+        let canvas_x = sidebar_width;
+        let canvas_width = window_size.width as f32 - sidebar_width;
+        let canvas_height = window_size.height as f32;
+        
+        // Set viewport to exclude sidebar area
+        render_pass.set_viewport(
+            canvas_x,
+            0.0,
+            canvas_width,
+            canvas_height,
+            0.0,
+            1.0
+        );
+        
+        // Set scissor rect to clip canvas content
+        render_pass.set_scissor_rect(
+            sidebar_width as u32,
+            0,
+            (window_size.width as f32 - sidebar_width) as u32,
+            window_size.height
+        );
+    }
     
     // Keep editor_lock alive for the entire render pass duration
     // This is the simplest solution - we accept that the editor is locked during rendering

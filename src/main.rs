@@ -2,6 +2,8 @@ use gui_core::{App, Element};
 use gui_core::widgets::*;
 use gui_core::widgets::container::{Padding, Background};
 use gui_core::widgets::text::text_signal;
+use gui_core::widgets::property_inspector::{property_inspector, PropertyGroup, PropertyDefinition, PropertyType};
+use gui_core::widgets::dropdown::DropdownOption;
 use gui_reactive::Signal;
 use vello::peniko::{Color, Gradient, GradientKind, ColorStops, Extend};
 use gui_core::widgets::canvas::canvas;
@@ -16,7 +18,7 @@ use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use stunts_engine::{
-    editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader},
+    editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader, ObjectProperty},
 };
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
@@ -54,6 +56,11 @@ enum Command {
         position: String,
         scale: String,
         opacity: String,
+    },
+    UpdateTextProperty {
+        // text_id: String,
+        property_key: String,
+        property_value: String,
     },
 }
 
@@ -271,6 +278,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let display_motion_form = Signal::new(false);
     let display_motion_loading = Signal::new(false);
+    
+    // Sidebar state for property editing
+    let sidebar_visible = Signal::new(false);
+    let sidebar_width = 300.0;
 
     let motion_text = Signal::new("Motion Direction".to_string());
     let description_text = Signal::new("".to_string());
@@ -580,6 +591,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
+    // Toggle sidebar for property editing
+    let button_properties = button("Properties")
+        .with_font_size(10.0)
+        .with_width(100.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let sidebar_visible = sidebar_visible.clone();
+            move || {
+                sidebar_visible.set(!sidebar_visible.get());
+            }
+        });
+
     let left_tools = row()
         .with_size(1000.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
@@ -591,7 +619,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(button_video)))
         .with_child(Element::new_widget(Box::new(button_capture)))
         .with_child(Element::new_widget(Box::new(button3)))
-        .with_child(Element::new_widget(Box::new(button4)));
+        .with_child(Element::new_widget(Box::new(button4)))
+        .with_child(Element::new_widget(Box::new(button_properties)));
 
     // let right_tools = row()
     //     .with_size(400.0, 50.0)
@@ -612,6 +641,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_main_axis_alignment(MainAxisAlignment::Center)
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         .with_child(Element::new_widget(Box::new(button5)));
+
+    // Create property sidebar with sample font family dropdown
+    let font_options = vec![
+        DropdownOption::new("Actor", "Actor"),
+        DropdownOption::new("Aladin", "Aladin"),
+        DropdownOption::new("Aleo", "Aleo"),
+        DropdownOption::new("Amiko", "Amiko"),
+        DropdownOption::new("Ballet", "Ballet"),
+        DropdownOption::new("Basic", "Basic"),
+        DropdownOption::new("Bungee", "Bungee"),
+        DropdownOption::new("Caramel", "Caramel"),
+        DropdownOption::new("Cherish", "Cherish"),
+        DropdownOption::new("Coda", "Coda"),
+    ];
+
+    let text_properties = PropertyGroup::new("Text Properties")
+        .with_property(PropertyDefinition::text("text_content", "Text", "Sample Text"))
+        .with_property(PropertyDefinition::dropdown("font_family", "Font Family", font_options, "Aleo"))
+        .with_property(PropertyDefinition::number("font_size", "Font Size", 24.0))
+        .with_property(PropertyDefinition::color("text_color", "Text Color", Color::rgba8(0, 0, 0, 255)));
+
+    let transform_properties = PropertyGroup::new("Transform")
+        .with_property(PropertyDefinition::number("position_x", "X Position", 0.0))
+        .with_property(PropertyDefinition::number("position_y", "Y Position", 0.0))
+        .with_property(PropertyDefinition::number("width", "Width", 200.0))
+        .with_property(PropertyDefinition::number("height", "Height", 50.0));
+
+    let property_sidebar = container()
+        .with_size(sidebar_width, 750.0)
+        .with_background_color(Color::rgba8(45, 45, 50, 255))
+        .with_display_signal(sidebar_visible.clone())
+        .with_child(
+            property_inspector()
+                .with_size(sidebar_width, 750.0)
+                .add_group(text_properties)
+                .add_group(transform_properties)
+                .on_property_change({
+                    let tx = command_tx.clone();
+                    move |key, value| {
+                        println!("Property changed: {} = {:?}", key, value);
+                        // For now, assume we're editing the last added text item
+                        // In a real implementation, you'd track the selected object
+                        if let Some(value_str) = match value {
+                            gui_core::widgets::property_inspector::PropertyValue::Text(s) => Some(s.clone()),
+                            gui_core::widgets::property_inspector::PropertyValue::Select(s) => Some(s.clone()),
+                            gui_core::widgets::property_inspector::PropertyValue::Number(n) => Some(n.to_string()),
+                            _ => None,
+                        } {
+                            let _ = tx.send(Command::UpdateTextProperty {
+                                // text_id: "last_added".to_string(), // Placeholder - would need proper selection tracking
+                                property_key: key.to_string(),
+                                property_value: value_str,
+                            });
+                        }
+                    }
+                })
+                .into_property_inspector_element()
+        );
     
     // Create a radial gradient for container
     let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
@@ -626,13 +713,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(motion_form.into_container_element())
         .with_child(primary_canvas::create_render_placeholder()?)
         .with_child(video_ctrls.into_container_element());
+
+    // Create main content area with sidebar
+    let main_content = row()
+        .with_size(1200.0, 800.0)
+        .with_main_axis_alignment(MainAxisAlignment::Start)
+        .with_cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(property_sidebar.into_container_element())
+        .with_child(main_column.into_container_element());
     
     let container = container()
         .with_size(1200.0, 800.0) 
         .with_radial_gradient(container_gradient)
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        .with_child(main_column.into_container_element());
+        .with_child(main_content.into_container_element());
     
     let root = container.into_container_element();
 
@@ -1260,6 +1355,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             }
                                         });
                                     }
+                                    Command::UpdateTextProperty { property_key, property_value } => {
+                                        println!("Processing text property update: {} = {}", property_key, property_value);
+                                        
+                                        // Convert property to ObjectProperty enum
+                                        let object_property = match property_key.as_str() {
+                                            "font_family" => ObjectProperty::FontFamily(property_value),
+                                            "font_size" => {
+                                                if let Ok(size) = property_value.parse::<f32>() {
+                                                    ObjectProperty::FontSize(size)
+                                                } else {
+                                                    println!("Invalid font size: {}", property_value);
+                                                    continue;
+                                                }
+                                            },
+                                            "text_content" => ObjectProperty::Text(property_value),
+                                            _ => {
+                                                println!("Unsupported property: {}", property_key);
+                                                continue;
+                                            }
+                                        };
+
+                                        // if let Some(last_text) = editor.text_items.last() {
+                                            let text_id = editor.selected_polygon_id; //  this will be currently selected text object id
+                                            let window_size = WindowSize {
+                                                width: window_size.width,
+                                                height: window_size.height,
+                                            };
+                                            
+                                            if let Err(e) = editor.update_text_property(
+                                                text_id,
+                                                object_property,
+                                            ) {
+                                                println!("Failed to update text property: {}", e);
+                                            } else {
+                                                println!("Text property updated successfully");
+                                            }
+                                        // } else {
+                                        //     println!("No text items to update");
+                                        // }
+                                    }
                                 }
                             }
                         } else {
@@ -1279,7 +1414,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 
-                render_integration::render_stunts_content(cache.as_ref().unwrap(), device, queue, encoder, external_resources, view)
+                render_integration::render_stunts_content(
+                    cache.as_ref().unwrap(), 
+                    device, 
+                    queue, 
+                    encoder, 
+                    external_resources, 
+                    view,
+                    sidebar_visible.get(),
+                    sidebar_width
+                )
             })
         }
     )
