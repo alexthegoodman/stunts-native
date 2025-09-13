@@ -199,6 +199,13 @@ pub fn render_stunts_content(
                 path.transform
                     .update_uniform_buffer(&queue, &camera.window_size);
             }
+        } else if let Some(dragging_id) = editor_lock.dragging_polygon {
+            if dragging_id == path.source_polygon_id {
+                path.transform.update_uniform_buffer(
+                    &queue,
+                    &camera.window_size,
+                );
+            }
         }
 
         render_pass.set_bind_group(3, &path.bind_group, &[]);
