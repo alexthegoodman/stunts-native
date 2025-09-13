@@ -913,6 +913,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         );
 
                                         editor_state.add_saved_polygon(
+                                            &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
                                             dummy_sequence_id.to_string(),
                                             SavedPolygonConfig {
                                                 id: polygon_config.id.to_string().clone(),
@@ -1005,6 +1006,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         );
 
                                         editor_state.add_saved_text_item(
+                                            &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
                                             dummy_sequence_id.to_string(),
                                             SavedTextRendererConfig {
                                                 id: text_config.id.to_string(),
@@ -1079,6 +1081,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         );
 
                                         editor_state.add_saved_image_item(
+                                            &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
                                             dummy_sequence_id.to_string(),
                                             SavedStImageConfig {
                                                 id: image_config.id.clone(),
@@ -1159,6 +1162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             .clone();
 
                                         editor_state.add_saved_video_item(
+                                            &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
                                             dummy_sequence_id.to_string(),
                                             SavedStVideoConfig {
                                                 id: video_config.id.clone(),

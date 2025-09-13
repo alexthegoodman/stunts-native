@@ -1451,6 +1451,7 @@ impl EditorState {
 
     pub fn add_saved_polygon(
         &mut self,
+        saved_state: &mut SavedState,
         selected_sequence_id: String,
         savable_polygon: SavedPolygonConfig,
     ) {
@@ -1460,11 +1461,11 @@ impl EditorState {
             savable_polygon.position.clone(),
         );
 
-        let mut editor = self.editor.lock().unwrap();
-        let mut saved_state = editor
-            .saved_state
-            .as_mut()
-            .expect("Couldn't get Saved State");
+        // let mut editor = self.editor.lock().unwrap();
+        // let mut saved_state = editor
+        //     .saved_state
+        //     .as_mut()
+        //     .expect("Couldn't get Saved State");
 
         saved_state.sequences.iter_mut().for_each(|s| {
             if s.id == selected_sequence_id {
@@ -1478,6 +1479,7 @@ impl EditorState {
 
     pub fn add_saved_text_item(
         &mut self,
+        saved_state: &mut SavedState,
         selected_sequence_id: String,
         savable_text_item: SavedTextRendererConfig,
     ) {
@@ -1487,11 +1489,11 @@ impl EditorState {
             savable_text_item.position.clone(),
         );
 
-        let mut editor = self.editor.lock().unwrap();
-        let mut saved_state = editor
-            .saved_state
-            .as_mut()
-            .expect("Couldn't get Saved State");
+        // let mut editor = self.editor.lock().unwrap();
+        // let mut saved_state = editor
+        //     .saved_state
+        //     .as_mut()
+        //     .expect("Couldn't get Saved State");
 
         saved_state.sequences.iter_mut().for_each(|s| {
             if s.id == selected_sequence_id {
@@ -1505,6 +1507,7 @@ impl EditorState {
 
     pub fn add_saved_image_item(
         &mut self,
+        saved_state: &mut SavedState,
         selected_sequence_id: String,
         savable_image_item: SavedStImageConfig,
     ) {
@@ -1514,11 +1517,11 @@ impl EditorState {
             savable_image_item.position.clone(),
         );
 
-        let mut editor = self.editor.lock().unwrap();
-        let mut saved_state = editor
-            .saved_state
-            .as_mut()
-            .expect("Couldn't get Saved State");
+        // let mut editor = self.editor.lock().unwrap();
+        // let mut saved_state = editor
+        //     .saved_state
+        //     .as_mut()
+        //     .expect("Couldn't get Saved State");
 
         saved_state.sequences.iter_mut().for_each(|s| {
             if s.id == selected_sequence_id {
@@ -1532,6 +1535,7 @@ impl EditorState {
 
     pub fn add_saved_video_item(
         &mut self,
+        saved_state: &mut SavedState,
         selected_sequence_id: String,
         savable_video_item: SavedStVideoConfig,
         source_duration_ms: i64,
@@ -1543,11 +1547,11 @@ impl EditorState {
                 savable_video_item.position.clone(),
             );
 
-            let mut editor = self.editor.lock().unwrap();
-            let mut saved_state = editor
-                .saved_state
-                .as_mut()
-                .expect("Couldn't get Saved State");
+            // let mut editor = self.editor.lock().unwrap();
+            // let mut saved_state = editor
+            //     .saved_state
+            //     .as_mut()
+            //     .expect("Couldn't get Saved State");
 
             saved_state.sequences.iter_mut().for_each(|s| {
                 if s.id == selected_sequence_id {
