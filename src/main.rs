@@ -63,6 +63,7 @@ enum Command {
         property_key: String,
         property_value: String,
     },
+    TogglePlay
 }
 
 // Intermediate structs to parse the API response format
@@ -588,7 +589,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .on_click({
             let tx = command_tx.clone();
             move || {
-                tx.send(Command::AddMotion);
+                tx.send(Command::TogglePlay);
             }
         });
 
@@ -1359,6 +1360,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         // } else {
                                         //     println!("No text items to update");
                                         // }
+                                    }
+                                    Command::TogglePlay => {
+                                        if editor.is_playing {
+                                            println!("Pause Sequence...");
+
+                                            editor.is_playing = false;
+                                            editor.start_playing_time = None;
+
+                                            // should return objects to the startup positions and state
+                                            editor.reset_sequence_objects();
+                                        } else {
+                                            println!("Play Sequence...");
+
+                                            let now = std::time::Instant::now();
+                                            editor.start_playing_time = Some(now);
+                                            editor.is_playing = true;
+                                        }
                                     }
                                 }
                             }
