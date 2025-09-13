@@ -204,38 +204,13 @@ impl ApiAnimationData {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Stunts Native...");
 
-    let window_size = WindowSize {
-        width: 1200,
-        height: 800,
-    };
-
-    let viewport = Arc::new(Mutex::new(Viewport::new(
-        window_size.width as f32,
-        window_size.height as f32,
-    )));
-
-    // let's try with the unified editor.rs
-    let mut editor = Editor::new(viewport.clone());
+    // let saved_state = load_project_state(uuid.clone().to_string())
+    //     .expect("Couldn't get Saved State");
 
     // dummy project
     let project_id = Uuid::new_v4();
     let destination_view = "scene".to_string();
     let dummy_sequence_id = Uuid::new_v4();
-
-    editor.project_selected = Some(project_id.clone());
-    editor.current_view = destination_view.clone();
-
-    let editor = Arc::new(Mutex::new(editor));
-
-    // editor_state holds saved data, not active gpu data
-    let cloned_editor = Arc::clone(&editor);
-    let record = Arc::new(Mutex::new(Record::new()));
-    let mut editor_state = editor_state::EditorState::new(cloned_editor, record.clone());
-
-    println!("Loading saved state...");
-
-    // let saved_state = load_project_state(uuid.clone().to_string())
-    //     .expect("Couldn't get Saved State");
 
     let mut dummy_sequences = Vec::new();
 
@@ -251,7 +226,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         active_video_items: Vec::new(),
     });
     
-    let saved_state = helpers::saved_state::SavedState {
+    let saved_state = stunts_engine::saved_state::SavedState {
         id: project_id.to_string(),
         // name: "New Project".to_string(),
         sequences: dummy_sequences,
@@ -259,8 +234,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             timeline_sequences: Vec::new(),
         },
     };
-    
-    editor_state.record_state.saved_state = Some(saved_state.clone());
+
+    let window_size = WindowSize {
+        width: 1200,
+        height: 800,
+    };
+
+    let viewport = Arc::new(Mutex::new(Viewport::new(
+        window_size.width as f32,
+        window_size.height as f32,
+    )));
+
+    // let's try with the unified editor.rs
+    let mut editor = Editor::new(viewport.clone());
+
+    editor.saved_state = Some(saved_state.clone());
+    editor.project_selected = Some(project_id.clone());
+    editor.current_view = destination_view.clone();
+
+    let editor = Arc::new(Mutex::new(editor));
+
+    // editor_state holds saved data, not active gpu data
+    let cloned_editor = Arc::clone(&editor);
+    let record = Arc::new(Mutex::new(Record::new()));
+    let mut editor_state = editor_state::EditorState::new(cloned_editor, record.clone());
     
     let editor_state = Arc::new(Mutex::new(editor_state));
 
@@ -814,20 +811,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Ok(rx) = api_response_rx_for_render.try_lock() {
                     while let Ok(animation_data) = rx.try_recv() {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
-                            if let Ok(mut editor_state) = state_for_render.try_lock() {                                
-                                if let Some(ref mut saved_state) = editor_state.record_state.saved_state {
+                            if let Ok(mut editor_state) = state_for_render.try_lock() { 
+                                let sequence_data = editor.current_sequence_data.clone();
+                                let last_motion_arrow_object_id = editor.last_motion_arrow_object_id.to_string();
+                               
+                                if let Some(ref mut saved_state) = editor.saved_state {
                                     // Clean up data
                                     let mut final_animation = animation_data.clone();
                                     final_animation.id = Uuid::new_v4().to_string();
                                     // final_animation.object_type = ObjectType::Polygon;
-                                    final_animation.polygon_id = editor.last_motion_arrow_object_id.to_string();
+                                    final_animation.polygon_id = last_motion_arrow_object_id;
                                     final_animation.start_time_ms = 0;
                                     final_animation.position = [0, 0];
 
                                     println!("final_animation: {:?}", final_animation);
 
+
                                     // Find the current sequence and add/overwrite the animation data
-                                    if let Some(current_seq_data) = &editor.current_sequence_data {
+                                    if let Some(current_seq_data) = &sequence_data {
                                         for sequence in &mut saved_state.sequences {
                                             if sequence.id == current_seq_data.id {
                                                 // Remove any existing motion paths for this polygon_id
@@ -944,8 +945,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             },
                                         );
 
-                                        let saved_state = editor_state
-                                            .record_state
+                                        let saved_state = editor
                                             .saved_state
                                             .as_ref()
                                             .expect("Couldn't get saved state");
@@ -1023,8 +1023,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             },
                                         );
 
-                                        let saved_state = editor_state
-                                            .record_state
+                                        let saved_state = editor
                                             .saved_state
                                             .as_ref()
                                             .expect("Couldn't get saved state");
@@ -1094,8 +1093,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             },
                                         );
 
-                                        let saved_state = editor_state
-                                            .record_state
+                                        let saved_state = editor
                                             .saved_state
                                             .as_ref()
                                             .expect("Couldn't get saved state");
@@ -1177,8 +1175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             source_duration_ms
                                         );
 
-                                        let saved_state = editor_state
-                                            .record_state
+                                        let saved_state = editor
                                             .saved_state
                                             .as_ref()
                                             .expect("Couldn't get saved state");

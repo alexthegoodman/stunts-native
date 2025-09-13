@@ -3767,6 +3767,7 @@ dependencies = [
  "bytemuck",
  "cgmath",
  "device_query",
+ "directories",
  "fontdue",
  "futures",
  "image",

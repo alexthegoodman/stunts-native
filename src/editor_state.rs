@@ -23,8 +23,8 @@ use undo::Edit;
 use undo::Record;
 use uuid::Uuid;
 
-use crate::helpers::saved_state::SavedState;
-use crate::helpers::utilities::save_saved_state_raw;
+use stunts_engine::saved_state::SavedState;
+use stunts_engine::saved_state::save_saved_state_raw;
 
 #[derive(Debug)]
 pub struct ObjectEdit {
@@ -44,31 +44,20 @@ impl Edit for ObjectEdit {
 
     fn edit(&mut self, record_state: &mut RecordState) {
         let mut editor = record_state.editor.lock().unwrap();
-        let mut saved_state = record_state
-            .saved_state
-            .as_mut()
-            .expect("Couldn't get saved state");
+        // let mut saved_state = editor
+        //     .saved_state
+        //     .as_mut()
+        //     .expect("Couldn't get saved state");
+
+        // COMPLETED: Moved saved_state updates to within the editor.update_ functions where saved_state exists on the editor.
+        // The editor functions now handle saved_state updates internally, and only save_saved_state_raw calls are needed here.
 
         match &self.new_value {
             ObjectProperty::Width(w) => {
                 match self.object_type {
                     ObjectType::Polygon => {
                         editor.update_polygon(self.object_id, "width", InputValue::Number(*w));
-
-                        let mut width = w.to_string();
-                        // // self.signal.expect("signal error").set(width);
-
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_polygons.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as i32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
-
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::TextItem => {
                         editor.update_text(self.object_id, "width", InputValue::Number(*w));
@@ -76,17 +65,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_text_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as i32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_text_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as i32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::ImageItem => {
                         editor.update_image(self.object_id, "width", InputValue::Number(*w));
@@ -94,17 +83,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_image_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as u32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_image_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as u32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::VideoItem => {
                         editor.update_video(self.object_id, "width", InputValue::Number(*w));
@@ -112,17 +101,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_video_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as u32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_video_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as u32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                 }
             }
@@ -131,74 +120,74 @@ impl Edit for ObjectEdit {
                     ObjectType::Polygon => {
                         editor.update_polygon(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_polygons.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as i32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_polygons.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as i32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::TextItem => {
                         editor.update_text(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_text_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as i32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_text_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as i32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::ImageItem => {
                         editor.update_image(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_image_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as u32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_image_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as u32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::VideoItem => {
                         editor.update_video(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_video_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as u32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_video_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as u32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                 }
             }
@@ -207,55 +196,55 @@ impl Edit for ObjectEdit {
                     if let Some(selected_sequence_id) = self.selected_sequence_id.clone() {
                         editor.update_background(self.object_id, "red", InputValue::Number(*h));
 
-                        let mut red = h.to_string();
-                        // self.signal.expect("signal error").set(red);
+                        // let mut red = h.to_string();
+                        // // self.signal.expect("signal error").set(red);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            if s.id == selected_sequence_id {
-                                if s.background_fill.is_none() {
-                                    s.background_fill = Some(BackgroundFill::Color([
-                                        wgpu_to_human(0.8) as i32,
-                                        wgpu_to_human(0.8) as i32,
-                                        wgpu_to_human(0.8) as i32,
-                                        255,
-                                    ]));
-                                }
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     if s.id == selected_sequence_id {
+                        //         if s.background_fill.is_none() {
+                        //             s.background_fill = Some(BackgroundFill::Color([
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 255,
+                        //             ]));
+                        //         }
 
-                                let background_fill = s
-                                    .background_fill
-                                    .as_mut()
-                                    .expect("Couldn't get background fill");
+                        //         let background_fill = s
+                        //             .background_fill
+                        //             .as_mut()
+                        //             .expect("Couldn't get background fill");
 
-                                match background_fill {
-                                    BackgroundFill::Color(fill) => {
-                                        fill[0] = *h as i32;
-                                    }
-                                    _ => {
-                                        println!("Not supported");
-                                    }
-                                }
-                            }
-                        });
+                        //         match background_fill {
+                        //             BackgroundFill::Color(fill) => {
+                        //                 fill[0] = *h as i32;
+                        //             }
+                        //             _ => {
+                        //                 println!("Not supported");
+                        //             }
+                        //         }
+                        //     }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                 } else {
                     editor.update_polygon(self.object_id, "red", InputValue::Number(*h));
 
-                    let mut red = h.to_string();
-                    // self.signal.expect("signal error").set(red);
+                    // let mut red = h.to_string();
+                    // // self.signal.expect("signal error").set(red);
 
-                    saved_state.sequences.iter_mut().for_each(|s| {
-                        // if s.id == selected_sequence_id.get() {
-                        s.active_polygons.iter_mut().for_each(|p| {
-                            if p.id == self.object_id.to_string() {
-                                p.fill[0] = color_to_wgpu(*h) as i32;
-                            }
-                        });
-                        // }
-                    });
+                    // saved_state.sequences.iter_mut().for_each(|s| {
+                    //     // if s.id == selected_sequence_id.get() {
+                    //     s.active_polygons.iter_mut().for_each(|p| {
+                    //         if p.id == self.object_id.to_string() {
+                    //             p.fill[0] = color_to_wgpu(*h) as i32;
+                    //         }
+                    //     });
+                    //     // }
+                    // });
 
-                    save_saved_state_raw(saved_state.clone());
+                    // save_saved_state_raw(saved_state.clone());
                 }
             }
             ObjectProperty::Green(h) => {
@@ -263,55 +252,55 @@ impl Edit for ObjectEdit {
                     if let Some(selected_sequence_id) = self.selected_sequence_id.clone() {
                         editor.update_background(self.object_id, "green", InputValue::Number(*h));
 
-                        let mut red = h.to_string();
-                        // self.signal.expect("signal error").set(red);
+                        // let mut red = h.to_string();
+                        // // self.signal.expect("signal error").set(red);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            if s.id == selected_sequence_id {
-                                if s.background_fill.is_none() {
-                                    s.background_fill = Some(BackgroundFill::Color([
-                                        wgpu_to_human(0.8) as i32,
-                                        wgpu_to_human(0.8) as i32,
-                                        wgpu_to_human(0.8) as i32,
-                                        255,
-                                    ]));
-                                }
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     if s.id == selected_sequence_id {
+                        //         if s.background_fill.is_none() {
+                        //             s.background_fill = Some(BackgroundFill::Color([
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 255,
+                        //             ]));
+                        //         }
 
-                                let background_fill = s
-                                    .background_fill
-                                    .as_mut()
-                                    .expect("Couldn't get background fill");
+                        //         let background_fill = s
+                        //             .background_fill
+                        //             .as_mut()
+                        //             .expect("Couldn't get background fill");
 
-                                match background_fill {
-                                    BackgroundFill::Color(fill) => {
-                                        fill[1] = *h as i32;
-                                    }
-                                    _ => {
-                                        println!("Not supported");
-                                    }
-                                }
-                            }
-                        });
+                        //         match background_fill {
+                        //             BackgroundFill::Color(fill) => {
+                        //                 fill[1] = *h as i32;
+                        //             }
+                        //             _ => {
+                        //                 println!("Not supported");
+                        //             }
+                        //         }
+                        //     }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                 } else {
                     editor.update_polygon(self.object_id, "green", InputValue::Number(*h));
 
-                    let mut green = h.to_string();
-                    // self.signal.expect("signal error").set(green);
+                    // let mut green = h.to_string();
+                    // // self.signal.expect("signal error").set(green);
 
-                    saved_state.sequences.iter_mut().for_each(|s| {
-                        // if s.id == selected_sequence_id.get() {
-                        s.active_polygons.iter_mut().for_each(|p| {
-                            if p.id == self.object_id.to_string() {
-                                p.fill[1] = color_to_wgpu(*h) as i32;
-                            }
-                        });
-                        // }
-                    });
+                    // saved_state.sequences.iter_mut().for_each(|s| {
+                    //     // if s.id == selected_sequence_id.get() {
+                    //     s.active_polygons.iter_mut().for_each(|p| {
+                    //         if p.id == self.object_id.to_string() {
+                    //             p.fill[1] = color_to_wgpu(*h) as i32;
+                    //         }
+                    //     });
+                    //     // }
+                    // });
 
-                    save_saved_state_raw(saved_state.clone());
+                    // save_saved_state_raw(saved_state.clone());
                 }
             }
             ObjectProperty::Blue(h) => {
@@ -322,52 +311,52 @@ impl Edit for ObjectEdit {
                         let mut red = h.to_string();
                         // self.signal.expect("signal error").set(red);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            if s.id == selected_sequence_id {
-                                if s.background_fill.is_none() {
-                                    s.background_fill = Some(BackgroundFill::Color([
-                                        wgpu_to_human(0.8) as i32,
-                                        wgpu_to_human(0.8) as i32,
-                                        wgpu_to_human(0.8) as i32,
-                                        255,
-                                    ]));
-                                }
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     if s.id == selected_sequence_id {
+                        //         if s.background_fill.is_none() {
+                        //             s.background_fill = Some(BackgroundFill::Color([
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 wgpu_to_human(0.8) as i32,
+                        //                 255,
+                        //             ]));
+                        //         }
 
-                                let background_fill = s
-                                    .background_fill
-                                    .as_mut()
-                                    .expect("Couldn't get background fill");
+                        //         let background_fill = s
+                        //             .background_fill
+                        //             .as_mut()
+                        //             .expect("Couldn't get background fill");
 
-                                match background_fill {
-                                    BackgroundFill::Color(fill) => {
-                                        fill[2] = *h as i32;
-                                    }
-                                    _ => {
-                                        println!("Not supported");
-                                    }
-                                }
-                            }
-                        });
+                        //         match background_fill {
+                        //             BackgroundFill::Color(fill) => {
+                        //                 fill[2] = *h as i32;
+                        //             }
+                        //             _ => {
+                        //                 println!("Not supported");
+                        //             }
+                        //         }
+                        //     }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                 } else {
                     editor.update_polygon(self.object_id, "blue", InputValue::Number(*h));
 
-                    let mut blue = h.to_string();
-                    // self.signal.expect("signal error").set(blue);
+                    // let mut blue = h.to_string();
+                    // // self.signal.expect("signal error").set(blue);
 
-                    saved_state.sequences.iter_mut().for_each(|s| {
-                        // if s.id == selected_sequence_id.get() {
-                        s.active_polygons.iter_mut().for_each(|p| {
-                            if p.id == self.object_id.to_string() {
-                                p.fill[2] = color_to_wgpu(*h) as i32;
-                            }
-                        });
-                        // }
-                    });
+                    // saved_state.sequences.iter_mut().for_each(|s| {
+                    //     // if s.id == selected_sequence_id.get() {
+                    //     s.active_polygons.iter_mut().for_each(|p| {
+                    //         if p.id == self.object_id.to_string() {
+                    //             p.fill[2] = color_to_wgpu(*h) as i32;
+                    //         }
+                    //     });
+                    //     // }
+                    // });
 
-                    save_saved_state_raw(saved_state.clone());
+                    // save_saved_state_raw(saved_state.clone());
                 }
             }
 
@@ -381,19 +370,19 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(red_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_text_items.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            let background_fill =
-                                p.background_fill.as_mut().expect("Couldn't get bg fill");
-                            background_fill[0] = red_human as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_text_items.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             let background_fill =
+                //                 p.background_fill.as_mut().expect("Couldn't get bg fill");
+                //             background_fill[0] = red_human as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::FillGreen(h) => {
                 // let mut stroke_green = h.to_string();
@@ -405,19 +394,19 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(green_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_text_items.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            let background_fill =
-                                p.background_fill.as_mut().expect("Couldn't get bg fill");
-                            background_fill[1] = green_human as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_text_items.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             let background_fill =
+                //                 p.background_fill.as_mut().expect("Couldn't get bg fill");
+                //             background_fill[1] = green_human as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::FillBlue(h) => {
                 // let mut stroke_green = h.to_string();
@@ -429,19 +418,19 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(blue_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_text_items.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            let background_fill =
-                                p.background_fill.as_mut().expect("Couldn't get bg fill");
-                            background_fill[2] = blue_human as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_text_items.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             let background_fill =
+                //                 p.background_fill.as_mut().expect("Couldn't get bg fill");
+                //             background_fill[2] = blue_human as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
 
             ObjectProperty::BorderRadius(h) => {
@@ -450,17 +439,17 @@ impl Edit for ObjectEdit {
                 let mut border_radius = h.to_string();
                 // self.signal.expect("signal error").set(border_radius);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.border_radius = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.border_radius = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeThickness(h) => {
                 editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h));
@@ -468,17 +457,17 @@ impl Edit for ObjectEdit {
                 let mut stroke_thickness = h.to_string();
                 // self.signal.expect("signal error").set(stroke_thickness);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.thickness = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.thickness = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeRed(h) => {
                 editor.update_polygon(self.object_id, "stroke_red", InputValue::Number(*h));
@@ -486,17 +475,17 @@ impl Edit for ObjectEdit {
                 let mut stroke_red = h.to_string();
                 // self.signal.expect("signal error").set(stroke_red);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.fill[0] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.fill[0] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeGreen(h) => {
                 editor.update_polygon(self.object_id, "stroke_green", InputValue::Number(*h));
@@ -504,17 +493,17 @@ impl Edit for ObjectEdit {
                 let mut stroke_green = h.to_string();
                 // self.signal.expect("signal error").set(stroke_green);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.fill[1] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.fill[1] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeBlue(h) => {
                 editor.update_polygon(self.object_id, "stroke_blue", InputValue::Number(*h));
@@ -522,17 +511,17 @@ impl Edit for ObjectEdit {
                 let mut stroke_blue = h.to_string();
                 // self.signal.expect("signal error").set(stroke_blue);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.fill[2] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.fill[2] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::FontFamily(new_font_family) => {
                 editor.update_text_property(
@@ -561,12 +550,12 @@ impl Edit for ObjectEdit {
 
     fn undo(&mut self, record_state: &mut RecordState) {
         let mut editor = record_state.editor.lock().unwrap();
-        let mut saved_state = record_state
-            .saved_state
-            .as_mut()
-            .expect("Couldn't get saved state");
+        // let mut saved_state = editor
+        //     .saved_state
+        //     .as_mut()
+        //     .expect("Couldn't get saved state");
 
-        // TODO: everything is the same as edit(), except supplying old_value, might want to make DRY
+        // NOTE: everything is the same as edit(), except supplying old_value, might want to make DRY
         match &self.old_value {
             ObjectProperty::Width(w) => {
                 match self.object_type {
@@ -576,17 +565,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_polygons.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as i32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_polygons.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as i32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::TextItem => {
                         editor.update_text(self.object_id, "width", InputValue::Number(*w));
@@ -594,17 +583,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_text_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as i32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_text_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as i32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::ImageItem => {
                         editor.update_image(self.object_id, "width", InputValue::Number(*w));
@@ -612,17 +601,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_image_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as u32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_image_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as u32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::VideoItem => {
                         editor.update_video(self.object_id, "width", InputValue::Number(*w));
@@ -630,17 +619,17 @@ impl Edit for ObjectEdit {
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
-                            s.active_video_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (*w as u32, p.dimensions.1);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() { // would be more efficient for many sequences
+                        //     s.active_video_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (*w as u32, p.dimensions.1);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                 }
             }
@@ -649,74 +638,74 @@ impl Edit for ObjectEdit {
                     ObjectType::Polygon => {
                         editor.update_polygon(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_polygons.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as i32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_polygons.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as i32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::TextItem => {
                         editor.update_text(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_text_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as i32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_text_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as i32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::ImageItem => {
                         editor.update_image(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_image_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as u32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_image_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as u32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::VideoItem => {
                         editor.update_video(self.object_id, "height", InputValue::Number(*h));
 
-                        let mut height = h.to_string();
-                        // self.signal.expect("signal error").set(height);
+                        // let mut height = h.to_string();
+                        // // self.signal.expect("signal error").set(height);
 
-                        saved_state.sequences.iter_mut().for_each(|s| {
-                            // if s.id == selected_sequence_id.get() {
-                            s.active_video_items.iter_mut().for_each(|p| {
-                                if p.id == self.object_id.to_string() {
-                                    p.dimensions = (p.dimensions.0, *h as u32);
-                                }
-                            });
-                            // }
-                        });
+                        // saved_state.sequences.iter_mut().for_each(|s| {
+                        //     // if s.id == selected_sequence_id.get() {
+                        //     s.active_video_items.iter_mut().for_each(|p| {
+                        //         if p.id == self.object_id.to_string() {
+                        //             p.dimensions = (p.dimensions.0, *h as u32);
+                        //         }
+                        //     });
+                        //     // }
+                        // });
 
-                        save_saved_state_raw(saved_state.clone());
+                        // save_saved_state_raw(saved_state.clone());
                     }
                 }
             }
@@ -730,17 +719,17 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(red_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.fill[0] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.fill[0] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::Green(h) => {
                 // let mut stroke_green = h.to_string();
@@ -752,17 +741,17 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(green_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.fill[1] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.fill[1] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::Blue(h) => {
                 // let mut stroke_green = h.to_string();
@@ -774,17 +763,17 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(blue_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.fill[2] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.fill[2] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
 
             ObjectProperty::FillRed(h) => {
@@ -795,19 +784,19 @@ impl Edit for ObjectEdit {
 
                 // self.signal.expect("signal error").set(h.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_text_items.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            let background_fill =
-                                p.background_fill.as_mut().expect("Couldn't get bg fill");
-                            background_fill[0] = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_text_items.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             let background_fill =
+                //                 p.background_fill.as_mut().expect("Couldn't get bg fill");
+                //             background_fill[0] = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::FillGreen(h) => {
                 // let mut stroke_green = h.to_string();
@@ -821,19 +810,19 @@ impl Edit for ObjectEdit {
 
                 // self.signal.expect("signal error").set(h.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_text_items.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            let background_fill =
-                                p.background_fill.as_mut().expect("Couldn't get bg fill");
-                            background_fill[1] = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_text_items.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             let background_fill =
+                //                 p.background_fill.as_mut().expect("Couldn't get bg fill");
+                //             background_fill[1] = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::FillBlue(h) => {
                 // let mut stroke_green = h.to_string();
@@ -843,19 +832,19 @@ impl Edit for ObjectEdit {
 
                 // self.signal.expect("signal error").set(h.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_text_items.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            let background_fill =
-                                p.background_fill.as_mut().expect("Couldn't get bg fill");
-                            background_fill[2] = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_text_items.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             let background_fill =
+                //                 p.background_fill.as_mut().expect("Couldn't get bg fill");
+                //             background_fill[2] = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
 
             ObjectProperty::BorderRadius(h) => {
@@ -864,17 +853,17 @@ impl Edit for ObjectEdit {
                 let mut border_radius = h.to_string();
                 // self.signal.expect("signal error").set(border_radius);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.border_radius = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.border_radius = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeThickness(h) => {
                 editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h));
@@ -882,17 +871,17 @@ impl Edit for ObjectEdit {
                 let mut stroke_thickness = h.to_string();
                 // self.signal.expect("signal error").set(stroke_thickness);
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.thickness = *h as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.thickness = *h as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeRed(h) => {
                 // let mut stroke_red = h.to_string();
@@ -904,17 +893,17 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(red_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.fill[0] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.fill[0] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeGreen(h) => {
                 // let mut stroke_green = h.to_string();
@@ -930,17 +919,17 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(green_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.fill[1] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.fill[1] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeBlue(h) => {
                 // let mut stroke_blue = h.to_string();
@@ -956,17 +945,17 @@ impl Edit for ObjectEdit {
                 //     .expect("signal error")
                 //     .set(blue_human.to_string());
 
-                saved_state.sequences.iter_mut().for_each(|s| {
-                    // if s.id == selected_sequence_id.get() {
-                    s.active_polygons.iter_mut().for_each(|p| {
-                        if p.id == self.object_id.to_string() {
-                            p.stroke.fill[2] = color_to_wgpu(*h) as i32;
-                        }
-                    });
-                    // }
-                });
+                // saved_state.sequences.iter_mut().for_each(|s| {
+                //     // if s.id == selected_sequence_id.get() {
+                //     s.active_polygons.iter_mut().for_each(|p| {
+                //         if p.id == self.object_id.to_string() {
+                //             p.stroke.fill[2] = color_to_wgpu(*h) as i32;
+                //         }
+                //     });
+                //     // }
+                // });
 
-                save_saved_state_raw(saved_state.clone());
+                // save_saved_state_raw(saved_state.clone());
             } 
             
             ObjectProperty::FontFamily(new_font_family) => {
@@ -1019,7 +1008,6 @@ pub struct RecordState {
     pub editor: Arc<Mutex<Editor>>,
     // pub record: Arc<Mutex<Record<ObjectEdit>>>,
     // pub editor_state: EditorState,
-    pub saved_state: Option<SavedState>,
 }
 
 impl EditorState {
@@ -1031,7 +1019,6 @@ impl EditorState {
             record: Arc::clone(&record),
             record_state: RecordState {
                 editor: Arc::clone(&editor),
-                saved_state: None,
                 // record: Arc::clone(&record),
             },
             polygon_selected: false,
@@ -1417,8 +1404,8 @@ impl EditorState {
         let mut animations = Vec::new();
 
         // Find the animation with matching ID
-        let saved_state = self
-            .record_state
+        let editor = self.editor.lock().unwrap();
+        let saved_state = editor
             .saved_state
             .as_ref()
             .expect("Couldn't get saved state");
@@ -1473,8 +1460,8 @@ impl EditorState {
             savable_polygon.position.clone(),
         );
 
-        let mut saved_state = self
-            .record_state
+        let mut editor = self.editor.lock().unwrap();
+        let mut saved_state = editor
             .saved_state
             .as_mut()
             .expect("Couldn't get Saved State");
@@ -1487,8 +1474,6 @@ impl EditorState {
         });
 
         save_saved_state_raw(saved_state.clone());
-
-        self.record_state.saved_state = Some(saved_state.clone());
     }
 
     pub fn add_saved_text_item(
@@ -1502,8 +1487,8 @@ impl EditorState {
             savable_text_item.position.clone(),
         );
 
-        let mut saved_state = self
-            .record_state
+        let mut editor = self.editor.lock().unwrap();
+        let mut saved_state = editor
             .saved_state
             .as_mut()
             .expect("Couldn't get Saved State");
@@ -1516,8 +1501,6 @@ impl EditorState {
         });
 
         save_saved_state_raw(saved_state.clone());
-
-        self.record_state.saved_state = Some(saved_state.clone());
     }
 
     pub fn add_saved_image_item(
@@ -1531,8 +1514,8 @@ impl EditorState {
             savable_image_item.position.clone(),
         );
 
-        let mut saved_state = self
-            .record_state
+        let mut editor = self.editor.lock().unwrap();
+        let mut saved_state = editor
             .saved_state
             .as_mut()
             .expect("Couldn't get Saved State");
@@ -1545,8 +1528,6 @@ impl EditorState {
         });
 
         save_saved_state_raw(saved_state.clone());
-
-        self.record_state.saved_state = Some(saved_state.clone());
     }
 
     pub fn add_saved_video_item(
@@ -1562,8 +1543,8 @@ impl EditorState {
                 savable_video_item.position.clone(),
             );
 
-            let mut saved_state = self
-                .record_state
+            let mut editor = self.editor.lock().unwrap();
+            let mut saved_state = editor
                 .saved_state
                 .as_mut()
                 .expect("Couldn't get Saved State");
@@ -1587,8 +1568,8 @@ impl EditorState {
         );
 
         {
-            let mut saved_state = self
-                .record_state
+            let mut editor = self.editor.lock().unwrap();
+            let mut saved_state = editor
                 .saved_state
                 .as_mut()
                 .expect("Couldn't get Saved State");
@@ -1600,8 +1581,6 @@ impl EditorState {
             });
 
             save_saved_state_raw(saved_state.clone());
-
-            self.record_state.saved_state = Some(saved_state.clone());
         }
     }
 

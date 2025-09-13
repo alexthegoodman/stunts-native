@@ -25,9 +25,9 @@ use stunts_engine::timelines::SavedTimelineStateConfig;
 use stunts_engine::editor::WindowSize;
 use uuid::Uuid;
 
-use super::saved_state::ProjectData;
-use super::saved_state::ProjectsDataFile;
-use super::saved_state::SavedState;
+use stunts_engine::saved_state::ProjectData;
+use stunts_engine::saved_state::ProjectsDataFile;
+use stunts_engine::saved_state::SavedState;
 
 #[cfg(feature = "production")]
 pub const API_URL: &str = "https://madebycommon.com";
@@ -202,26 +202,7 @@ pub fn create_project_state(name: String) -> Result<SavedState, Box<dyn std::err
     Ok(initial_state)
 }
 
-pub fn save_saved_state(saved_state: MutexGuard<SavedState>) {
-    let owned = saved_state.to_owned();
-    save_saved_state_raw(owned);
-}
 
-pub fn save_saved_state_raw(saved_state: SavedState) {
-    let json = serde_json::to_string_pretty(&saved_state).expect("Couldn't serialize saved state");
-    let sync_dir = get_ground_truth_dir().expect("Couldn't get Stunts directory");
-    let project_dir = sync_dir.join("projects").join(saved_state.id.clone());
-    let save_path = project_dir.join("project_data.json");
-
-    println!("Saving saved state... {}", save_path.display());
-
-    // disabled for testing
-    // fs::write(&save_path, json).expect("Couldn't write saved state");
-
-    drop(saved_state);
-
-    println!("Saved!");
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AuthToken {
