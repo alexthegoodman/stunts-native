@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader, ObjectProperty},
+    capture::{StCapture, get_sources, WindowInfo},
 };
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
@@ -63,7 +64,10 @@ enum Command {
         property_key: String,
         property_value: String,
     },
-    TogglePlay
+    TogglePlay,
+    ShowCaptureSources,
+    StartScreenCapture { hwnd: usize },
+    StopScreenCapture,
 }
 
 // Intermediate structs to parse the API response format
@@ -246,7 +250,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )));
 
     // let's try with the unified editor.rs
-    let mut editor = Editor::new(viewport.clone());
+    let mut editor = Editor::new(viewport.clone(), project_id.clone().to_string());
 
     editor.saved_state = Some(saved_state.clone());
     editor.project_selected = Some(project_id.clone());
@@ -277,6 +281,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let display_motion_form = Signal::new(false);
     let display_motion_loading = Signal::new(false);
+    
+    // Screen capture state
+    let capture_sources_visible = Signal::new(false);
+    let available_capture_sources = Signal::new(Vec::<DropdownOption>::new());
+    let is_recording = Signal::new(false);
     
     // Sidebar state for property editing
     let sidebar_visible = Signal::new(false);
@@ -506,7 +515,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-    let button_capture = button("Capture Video")
+    // let capture_button_text = Signal::new("Screen Capture".to_string());
+
+    let capture_button_text = if is_recording.get() {
+        "Stop Recording"
+    } else {
+        "Screen Capture"
+    }.to_string();
+    
+    let button_capture = button(capture_button_text)
         .with_font_size(10.0)
         .with_width(100.0)
         .with_height(20.0)
@@ -517,8 +534,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .on_click({
             let tx = command_tx.clone();
-            move || {                
-                tx.send(Command::AddSquarePolygon);
+            let is_recording = is_recording.clone();
+            let capture_sources_visible = capture_sources_visible.clone();
+            move || {
+                if is_recording.get() {
+                    tx.send(Command::StopScreenCapture);
+                } else {
+                    tx.send(Command::ShowCaptureSources);
+                }
             }
         });
     
@@ -607,8 +630,112 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
+        // Screen capture sources dropdown
+    let capture_sources_dropdown = container()
+        .absolute() // Position absolutely
+        .with_position(450.0, 5.0) // Position over canvas area
+        .with_size(350.0, 40.0)
+        .with_background_color(Color::rgba8(255, 255, 255, 240))
+        .with_border_radius(8.0)
+        // .with_padding(Padding::all(15.0))
+        // .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 100))
+        .with_display_signal(capture_sources_visible.clone())
+        .with_child(
+            row()
+                // .with_size(320.0, 370.0)
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_cross_axis_alignment(CrossAxisAlignment::Start)
+                // .with_child(Element::new_widget(Box::new(
+                //     text("Select Screen or Window to Capture:")
+                //         .with_font_size(14.0)
+                //         .with_color(Color::rgba8(60, 60, 60, 255))
+                // )))
+                .with_child(Element::new_widget(Box::new(
+                    // // Scrollable list area for capture sources - will be populated dynamically
+                    // container()
+                    //     .with_size(310.0, 280.0)
+                    //     .with_background_color(Color::rgba8(248, 248, 248, 255))
+                    //     .with_border_radius(4.0)
+                    //     .with_padding(Padding::all(5.0))
+                    //     .with_child(
+                    //         column()
+                    //             .with_size(300.0, 270.0)
+                    //             .with_main_axis_alignment(MainAxisAlignment::Start)
+                    //             .with_cross_axis_alignment(CrossAxisAlignment::Start)
+                    //             // Source buttons will be added here dynamically via command processing
+                    //     )
+                    // Replace the container section (lines 650-661) with:
+                    dropdown()
+                        .with_size(150.0, 20.0)
+                        .with_font_size(12.0)
+                        .with_placeholder("Select a source...")
+                        // .with_options({
+                        //     let sources = available_capture_sources.get();
+                        //     sources.into_iter().map(|source| {
+                        //         DropdownOption {
+                        //             label: format!("{} ({}x{})", source.title, source.rect.width, source.rect.height),
+                        //             value: source.hwnd.to_string(),
+                        //         }
+                        //     }).collect()
+                        // })
+                        .with_options_signal(available_capture_sources.clone())
+                        .on_selection_changed({
+                            let tx = command_tx.clone();
+                            let capture_sources_visible = capture_sources_visible.clone();
+                            move |selected_value: String| {
+                                if let Ok(hwnd) = selected_value.parse::<usize>() {
+                                    println!("Selected capture source HWND: {}", hwnd);
+                                    capture_sources_visible.set(false);
+                                    let _ = tx.send(Command::StartScreenCapture { hwnd });
+                                }
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    row()
+                        .with_size(160.0, 30.0)
+                        .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
+                        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                        .with_child(Element::new_widget(Box::new(
+                            button("Cancel")
+                                .with_font_size(12.0)
+                                .with_width(80.0)
+                                .with_height(25.0)
+                                .with_backgrounds(
+                                    Background::Gradient(button_normal.clone()),
+                                    Background::Gradient(button_hover.clone()),
+                                    Background::Gradient(button_pressed.clone())
+                                )
+                                .on_click({
+                                    let capture_sources_visible = capture_sources_visible.clone();
+                                    move || {
+                                        capture_sources_visible.set(false);
+                                    }
+                                })
+                        )))
+                        .with_child(Element::new_widget(Box::new(
+                            button("Refresh")
+                                .with_font_size(12.0)
+                                .with_width(80.0)
+                                .with_height(25.0)
+                                .with_backgrounds(
+                                    Background::Gradient(button_normal.clone()),
+                                    Background::Gradient(button_hover.clone()),
+                                    Background::Gradient(button_pressed.clone())
+                                )
+                                .on_click({
+                                    let tx = command_tx.clone();
+                                    move || {
+                                        tx.send(Command::ShowCaptureSources);
+                                    }
+                                })
+                        )))
+                )))
+                .into_container_element()
+            );    
+
     let left_tools = row()
-        .with_size(1000.0, 50.0)
+        .with_size(1100.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(Element::new_widget(Box::new(button2)))
@@ -617,6 +744,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(button_image)))
         .with_child(Element::new_widget(Box::new(button_video)))
         .with_child(Element::new_widget(Box::new(button_capture)))
+        .with_child(capture_sources_dropdown.into_container_element())
         .with_child(Element::new_widget(Box::new(button3)))
         .with_child(Element::new_widget(Box::new(button4)))
         .with_child(Element::new_widget(Box::new(button_properties)));
@@ -662,8 +790,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_padding(Padding::only(25.0, 15.0, 25.0, 15.0))
         .with_display_signal(sidebar_visible.clone())
         .with_child(sidebar_inner.into_container_element());
-    
-    // Create a radial gradient for container
+
     let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
         .with_stops([Color::rgb8(90, 90, 95), Color::rgb8(45, 45, 50)]);
 
@@ -1379,6 +1506,89 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             editor.is_playing = true;
                                         }
                                     }
+                                    Command::ShowCaptureSources => {
+                                        println!("Processing show capture sources command");
+                                        // Get available capture sources (Windows enumeration)
+                                        // Note: This runs in render thread where editor is accessible
+                                        match get_sources() {
+                                            Ok(sources) => {
+                                                let filtered_sources: Vec<WindowInfo> = sources
+                                                    .into_iter()
+                                                    .filter(|s| s.title.len() > 1 && s.rect.width > 100 && s.rect.height > 100)
+                                                    .collect();
+
+                                                // Store sources for UI (can't directly update UI from here)
+                                                // The UI will need to be rebuilt with source buttons
+                                                println!("Found {} valid capture sources", filtered_sources.len());
+                                                for source in &filtered_sources {
+                                                    println!("Source: {} (HWND: {}) - {}x{}",
+                                                        source.title, source.hwnd, source.rect.width, source.rect.height);
+                                                }
+
+                                                // Show the dropdown
+                                                capture_sources_visible.set(true);
+
+                                                    
+
+                                                // Update the signal with available sources
+                                                available_capture_sources.set(filtered_sources.into_iter().map(|source| {
+                                                    DropdownOption {
+                                                        label: format!("{} ({}x{})", source.title, source.rect.width, source.rect.height),
+                                                        value: source.hwnd.to_string(),
+                                                    }
+                                                }).collect());
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to get capture sources: {}", e);
+                                            }
+                                        }
+                                    }
+                                    Command::StartScreenCapture { hwnd } => {
+                                        println!("Processing start screen capture command for HWND: {}", hwnd);
+
+                                        
+
+                                        // Start recording (this will handle HWND conversion internally)
+                                        // Note: start_video_capture expects (hwnd, width, height, project_id)
+                                        // TODO: We need to get the window dimensions for the selected HWND
+                                        match editor.st_capture.start_video_capture(hwnd, 1920, 1080, project_id.to_string()) {
+                                            Ok(_) => {
+                                                println!("Screen capture started successfully");
+                                                is_recording.set(true);
+                                                capture_sources_visible.set(false);
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to start screen capture: {}", e);
+                                            }
+                                        }
+                                    }
+                                    Command::StopScreenCapture => {
+                                        println!("Processing stop screen capture command");
+
+                                        
+
+                                        match editor.st_capture.stop_video_capture(project_id.to_string()) {
+                                            Ok((video_path, mouse_data_path)) => {
+                                                println!("Screen capture stopped successfully");
+                                                println!("Video saved to: {:?}", video_path);
+                                                println!("Mouse data saved to: {:?}", mouse_data_path);
+
+                                                is_recording.set(false);
+
+                                                // Automatically add the captured video to the current sequence
+                                                // video_path is already a String, not a PathBuf
+                                                // let tx_clone = command_tx.clone();
+                                                // let _ = tx_clone.send(Command::AddVideo {
+                                                //     file_path: video_path.clone()
+                                                // });
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to stop screen capture: {}", e);
+                                                is_recording.set(false);
+                                            }
+                                        }
+                                    }
+                                    
                                 }
                             }
                         } else {
