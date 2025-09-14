@@ -237,7 +237,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             wgpu_to_human(0.8) as i32,
             wgpu_to_human(0.8) as i32,
             wgpu_to_human(0.8) as i32,
-            1,
+            255,
         ])),
         duration_ms: 20000,
         active_polygons: Vec::new(),
