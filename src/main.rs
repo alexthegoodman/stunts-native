@@ -34,13 +34,14 @@ use uuid::Uuid;
 use rand::Rng;
 use undo::{Edit, Record};
 use stunts_engine::{
-    animations::Sequence,
+    animations::{BackgroundFill, Sequence},
 };
 use winit::event::{ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta};
 use winit::dpi::{LogicalSize, PhysicalSize};
 use stunts_engine::gpu_resources::GpuResources;
 use editor_state::EditorState;
 use std::fs;
+use stunts_engine::editor::wgpu_to_human;
 
 mod primary_canvas;
 mod pipeline;
@@ -232,7 +233,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dummy_sequences.push(Sequence  {
         id: dummy_sequence_id.to_string(),
         name: "Sequence 1".to_string(),
-        background_fill: None,
+        background_fill: Some(BackgroundFill::Color([
+            wgpu_to_human(0.8) as i32,
+            wgpu_to_human(0.8) as i32,
+            wgpu_to_human(0.8) as i32,
+            1,
+        ])),
         duration_ms: 20000,
         active_polygons: Vec::new(),
         polygon_motion_paths: Vec::new(),
@@ -1776,8 +1782,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         
                                         // Get window size for export
                                         let export_window_size = WindowSize {
-                                            width: window_size.width,
-                                            height: window_size.height,
+                                            // width: window_size.width,
+                                            // height: window_size.height,
+                                            width: 1920,
+                                            height: 1080
                                         };
                                         
                                         let project_id_for_export = project_id.to_string();
