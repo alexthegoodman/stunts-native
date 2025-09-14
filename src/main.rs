@@ -14,12 +14,15 @@ use std::sync::{Arc, Mutex};
 use std::cell::RefCell;
 use std::sync::mpsc;
 use std::time::Duration;
+use tokio::sync::mpsc as tokio_mpsc;
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader, ObjectProperty},
     capture::{StCapture, get_sources, WindowInfo, MousePosition, SourceData},
+    export::exporter::{ExportProgress, Exporter},
+    timelines::{SavedTimelineStateConfig, TimelineSequence},
 };
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
@@ -31,7 +34,7 @@ use uuid::Uuid;
 use rand::Rng;
 use undo::{Edit, Record};
 use stunts_engine::{
-    animations::Sequence, timelines::SavedTimelineStateConfig,
+    animations::Sequence,
 };
 use winit::event::{ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta};
 use winit::dpi::{LogicalSize, PhysicalSize};
@@ -69,6 +72,9 @@ enum Command {
     ShowCaptureSources,
     StartScreenCapture { hwnd: usize, width: usize, height: usize },
     StopScreenCapture,
+    Export {
+        progress_tx: tokio_mpsc::UnboundedSender<ExportProgress>,
+    },
 }
 
 // Intermediate structs to parse the API response format
@@ -287,6 +293,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create channel for API responses
     let (api_response_tx, api_response_rx) = mpsc::channel::<stunts_engine::animations::AnimationData>();
+    
+    // Create channel for export progress
+    let (export_progress_tx, export_progress_rx) = tokio_mpsc::unbounded_channel::<ExportProgress>();
 
     // Create gradients for button1 states
     let button_normal = Gradient::new_linear((0.0, 0.0), (0.0, 40.0))
@@ -303,6 +312,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let capture_sources_visible = Signal::new(false);
     let available_capture_sources = Signal::new(Vec::<DropdownOption>::new());
     let is_recording = Signal::new(false);
+    
+    // Export state
+    let is_exporting = Signal::new(false);
+    let export_progress = Signal::new(0.0f32);
+    let export_status = Signal::new("Ready to export".to_string());
     
     // Sidebar state for property editing
     let sidebar_visible = Signal::new(false);
@@ -596,8 +610,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-    // export the video
-    let button4 = button("Export")
+    // export the video - create reactive button text
+    let export_button_text = Signal::new("Export".to_string());
+    let button4 = button_signal(export_button_text.clone())
         .with_font_size(10.0)
         .with_width(100.0)
         .with_height(20.0)
@@ -608,8 +623,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .on_click({
             let tx = command_tx.clone();
+            let export_progress_tx = export_progress_tx.clone();
+            let is_exporting = is_exporting.clone();
             move || {
-                tx.send(Command::AddMotion);
+                if !is_exporting.get() {
+                    tx.send(Command::Export {
+                        progress_tx: export_progress_tx.clone(),
+                    });
+                }
             }
         });
 
@@ -769,7 +790,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(capture_sources_dropdown.into_container_element())
         .with_child(Element::new_widget(Box::new(button3)))
         .with_child(Element::new_widget(Box::new(button4)))
-        .with_child(Element::new_widget(Box::new(button_properties)));
+        .with_child(Element::new_widget(Box::new(button_properties)))
+        .with_child(Element::new_widget(Box::new(
+            text_signal(export_status.clone())
+                .with_font_size(10.0)
+                .with_color(Color::rgba8(200, 200, 200, 255))
+        )));
 
     // let right_tools = row()
     //     .with_size(400.0, 50.0)
@@ -945,6 +971,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let command_rx_for_render = Arc::new(Mutex::new(command_rx));
             let api_response_rx_for_render = Arc::new(Mutex::new(api_response_rx));
             let api_response_tx_for_render = api_response_tx.clone();
+            let export_progress_rx_for_render = Arc::new(Mutex::new(export_progress_rx));
             let engine_handle_cache: RefCell<Option<render_integration::EngineHandle>> = RefCell::new(None);
             
             Arc::new(move |device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, external_resources: &[vello::ExternalResource<'_>], view: &wgpu::TextureView| -> Result<(), vello::Error> {
@@ -957,6 +984,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 
                 // Process API responses
+                // uses std, not tokio
                 if let Ok(rx) = api_response_rx_for_render.try_lock() {
                     while let Ok(animation_data) = rx.try_recv() {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
@@ -1009,6 +1037,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         println!("Animation data successfully integrated into sequence (overwrote existing)");
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+                
+                // Process export progress updates
+                // uses tokio, not std
+                if let Ok(mut rx) = export_progress_rx_for_render.try_lock() {
+                    while let Ok(progress) = rx.try_recv() {
+                        match progress {
+                            ExportProgress::Progress(percent) => {
+                                export_progress.set(percent);
+                                export_status.set(format!("Exporting: {:.1}%", percent));
+                                export_button_text.set(format!("Exporting {:.0}%", percent));
+                            }
+                            ExportProgress::Complete(output_path) => {
+                                export_progress.set(100.0);
+                                export_status.set("Export complete!".to_string());
+                                export_button_text.set("Export".to_string());
+                                is_exporting.set(false);
+                                
+                                // Open the output folder in explorer
+                                tokio::spawn(async move {
+                                    if let Err(e) = std::process::Command::new("explorer")
+                                        .arg(&output_path)
+                                        .spawn() 
+                                    {
+                                        println!("Failed to open file browser: {}", e);
+                                    }
+                                });
+                            }
+                            ExportProgress::Error(err) => {
+                                export_status.set(format!("Export failed: {}", err));
+                                export_button_text.set("Export".to_string());
+                                is_exporting.set(false);
                             }
                         }
                     }
@@ -1296,10 +1359,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             width: window_size.width,
                                             height: window_size.height,
                                         };
-// need
-//                                         mouse_positions_path
-// source_data_path
-// get them by removing the last slug on file_path and adding mousePositions.json as as well as sourceData.json
 
                                         let mut saved_mouse_path = None;
                                         let mut stored_mouse_positions = None;
@@ -1600,11 +1659,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Command::StartScreenCapture { hwnd, width, height } => {
                                         println!("Processing start screen capture command for HWND: {}", hwnd);
 
-                                        
-
-                                        // Start recording (this will handle HWND conversion internally)
-                                        // Note: start_video_capture expects (hwnd, width, height, project_id)
-                                        // TODO: We need to get the window dimensions for the selected HWND
                                         match editor.st_capture.start_video_capture(hwnd, width as u32, height as u32, project_id.to_string()) {
                                             Ok(_) => {
                                                 println!("Screen capture started successfully");
@@ -1618,8 +1672,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::StopScreenCapture => {
                                         println!("Processing stop screen capture command");
-
-                                        
 
                                         match editor.st_capture.stop_video_capture(project_id.to_string()) {
                                             Ok((video_path, mouse_data_path)) => {
@@ -1636,6 +1688,133 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 is_recording.set(false);
                                             }
                                         }
+                                    }
+                                    Command::Export { progress_tx } => {
+                                        println!("Processing export command");
+                                        
+                                        if is_exporting.get() {
+                                            println!("Export already in progress");
+                                            continue;
+                                        }
+                                        
+                                        is_exporting.set(true);
+                                        export_status.set("Starting export...".to_string());
+                                        export_button_text.set("Exporting...".to_string());
+                                        
+                                        // Get all sequences from editor.saved_state
+                                        let sequences = if let Some(ref saved_state) = editor.saved_state {
+                                            saved_state.sequences.clone()
+                                        } else {
+                                            println!("No saved state found");
+                                            export_status.set("No sequences to export".to_string());
+                                            export_button_text.set("Export".to_string());
+                                            is_exporting.set(false);
+                                            continue;
+                                        };
+                                        
+                                        if sequences.is_empty() {
+                                            println!("No sequences to export");
+                                            export_status.set("No sequences to export".to_string());
+                                            export_button_text.set("Export".to_string());
+                                            is_exporting.set(false);
+                                            continue;
+                                        }
+                                        
+                                        // Create default timeline config with sequences in series
+                                        let mut timeline_sequences = Vec::new();
+                                        let mut current_start_time = 0;
+                                        
+                                        for sequence in &sequences {
+                                            timeline_sequences.push(TimelineSequence {
+                                                id: Uuid::new_v4().to_string(),
+                                                sequence_id: sequence.id.clone(),
+                                                start_time_ms: current_start_time,
+                                                // duration_ms: sequence.duration_ms,
+                                                track_type: stunts_engine::timelines::TrackType::Video,
+                                            });
+                                            current_start_time += sequence.duration_ms;
+                                        }
+                                        
+                                        let timeline_config = SavedTimelineStateConfig {
+                                            timeline_sequences,
+                                        };
+                                        
+                                        // Calculate total duration
+                                        let total_duration_s = sequences.iter()
+                                            .map(|s| s.duration_ms as f64 / 1000.0)
+                                            .sum::<f64>();
+                                        
+                                        if total_duration_s <= 0.0 {
+                                            println!("Invalid sequence duration");
+                                            export_status.set("Invalid sequence duration".to_string());
+                                            export_button_text.set("Export".to_string());
+                                            is_exporting.set(false);
+                                            continue;
+                                        }
+                                        
+                                        // Create exports directory and filename
+                                        let exports_dir = std::env::current_dir()
+                                            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                                            .join("exports");
+
+                                        if let Err(e) = std::fs::create_dir_all(&exports_dir) {
+                                            println!("Failed to create exports directory: {}", e);
+                                            export_status.set("Failed to create exports directory".to_string());
+                                            export_button_text.set("Export".to_string());
+                                            is_exporting.set(false);
+                                            continue;
+                                        }
+
+                                        let filename = format!("export_{}.mp4", 
+                                            std::time::SystemTime::now()
+                                                .duration_since(std::time::UNIX_EPOCH)
+                                                .unwrap()
+                                                .as_secs());
+                                        
+                                        let output_path = exports_dir.join(filename);
+                                        let output_path_str = output_path.to_str().expect("Invalid export path").to_string();
+                                        
+                                        // Get window size for export
+                                        let export_window_size = WindowSize {
+                                            width: window_size.width,
+                                            height: window_size.height,
+                                        };
+                                        
+                                        let project_id_for_export = project_id.to_string();
+                                        
+                                        println!("Starting export thread - sequences: {}, duration: {}s", 
+                                                sequences.len(), total_duration_s);
+                                        
+                                        // Spawn export thread
+                                        std::thread::spawn(move || {
+                                            // Create tokio runtime for this thread
+                                            let rt = tokio::runtime::Runtime::new().unwrap();
+                                            
+                                            rt.block_on(async {
+                                                // Create exporter in the export thread
+                                                let mut exporter = Exporter::new(&output_path_str);
+                                                
+                                                match exporter.run(
+                                                    export_window_size,
+                                                    sequences,
+                                                    timeline_config,
+                                                    export_window_size.width,
+                                                    export_window_size.height,
+                                                    total_duration_s,
+                                                    progress_tx.clone(),
+                                                    project_id_for_export,
+                                                ).await {
+                                                    Ok(_) => {
+                                                        println!("Export completed successfully");
+                                                        let _ = progress_tx.send(ExportProgress::Complete(output_path_str));
+                                                    }
+                                                    Err(e) => {
+                                                        println!("Export failed: {}", e);
+                                                        let _ = progress_tx.send(ExportProgress::Error(e));
+                                                    }
+                                                }
+                                            });
+                                        });
                                     }
                                     
                                 }
