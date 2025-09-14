@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader, ObjectProperty},
-    capture::{StCapture, get_sources, WindowInfo},
+    capture::{StCapture, get_sources, WindowInfo, MousePosition, SourceData},
 };
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
@@ -37,6 +37,7 @@ use winit::event::{ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDe
 use winit::dpi::{LogicalSize, PhysicalSize};
 use stunts_engine::gpu_resources::GpuResources;
 use editor_state::EditorState;
+use std::fs;
 
 mod primary_canvas;
 mod pipeline;
@@ -66,7 +67,7 @@ enum Command {
     },
     TogglePlay,
     ShowCaptureSources,
-    StartScreenCapture { hwnd: usize },
+    StartScreenCapture { hwnd: usize, width: usize, height: usize },
     StopScreenCapture,
 }
 
@@ -204,6 +205,10 @@ impl ApiAnimationData {
     }
 }
 
+fn split_format_string(input: &str) -> Vec<&str> {
+    input.split(&['-', 'x'][..]).collect()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Stunts Native...");
@@ -256,6 +261,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     editor.project_selected = Some(project_id.clone());
     editor.current_view = destination_view.clone();
 
+    // Create channel for communicating commands from UI to main thread
+    let (command_tx, command_rx) = mpsc::channel::<Command>();
+    
+    // Set up video completion callback for automatic AddVideo command
+    editor.st_capture.set_video_completion_callback({
+        let tx_for_callback = command_tx.clone();
+        
+        move |video_path: String| {
+            println!("Video encoding completed: {}", video_path);
+            let _ = tx_for_callback.send(Command::AddVideo {
+                file_path: video_path,
+            });
+        }
+    });
+
     let editor = Arc::new(Mutex::new(editor));
 
     // editor_state holds saved data, not active gpu data
@@ -265,9 +285,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let editor_state = Arc::new(Mutex::new(editor_state));
 
-    // Create channel for communicating commands from UI to main thread
-    let (command_tx, command_rx) = mpsc::channel::<Command>();
-    
     // Create channel for API responses
     let (api_response_tx, api_response_rx) = mpsc::channel::<stunts_engine::animations::AnimationData>();
 
@@ -682,11 +699,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .on_selection_changed({
                             let tx = command_tx.clone();
                             let capture_sources_visible = capture_sources_visible.clone();
-                            move |selected_value: String| {
-                                if let Ok(hwnd) = selected_value.parse::<usize>() {
-                                    println!("Selected capture source HWND: {}", hwnd);
-                                    capture_sources_visible.set(false);
-                                    let _ = tx.send(Command::StartScreenCapture { hwnd });
+                            move |selected_value_code: String| {
+                                let parts: Vec<&str> = split_format_string(&selected_value_code);
+                                if let Ok(hwnd) = parts[0].parse::<usize>() {
+                                    if let Ok(width) = parts[1].parse::<usize>() {
+                                        if let Ok(height) = parts[2].parse::<usize>() {
+                                            println!("Selected capture source HWND: {}", hwnd);
+                                            capture_sources_visible.set(false);
+                                            let _ = tx.send(Command::StartScreenCapture { hwnd, width, height });
+                                        }
+                                    }
                                 }
                             }
                         })
@@ -1245,11 +1267,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let random_coords = helpers::utilities::get_random_coords(window_size);
                                         let new_id = Uuid::new_v4();
                                         
+                                        let path = std::path::Path::new(&file_path);
                                         // Extract filename for a better name
-                                        let filename = std::path::Path::new(&file_path)
+                                        let filename = path
                                             .file_stem()
                                             .and_then(|s| s.to_str())
                                             .unwrap_or("Video");
+
+                                        let parent = path.parent().unwrap_or(Path::new(""));
+    
+                                        let mouse_positions_path = parent.join("mousePositions.json");
+                                        let source_data_path = parent.join("sourceData.json");
 
                                         let video_config = StVideoConfig {
                                             id: new_id.to_string(),
@@ -1268,6 +1296,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             width: window_size.width,
                                             height: window_size.height,
                                         };
+// need
+//                                         mouse_positions_path
+// source_data_path
+// get them by removing the last slug on file_path and adding mousePositions.json as as well as sourceData.json
+
+                                        let mut saved_mouse_path = None;
+                                        let mut stored_mouse_positions = None;
+                                        // if let Some(mouse_path) = &mouse_positions_path {
+                                            if let Ok(positions) = fs::read_to_string(mouse_positions_path.clone()) {
+                                                if let Ok(mouse_positions) = serde_json::from_str::<Vec<MousePosition>>(&positions) {
+                                                    let the_path = mouse_positions_path.to_str().expect("Couldn't make string from path");
+                                                    saved_mouse_path = Some(the_path.to_string());
+                                                    stored_mouse_positions = Some(mouse_positions);
+                                                }
+                                            }
+                                        // }
+
+                                        let mut stored_source_data = None;
+                                        // if let Some(source_path) = &source_data_path {
+                                            if let Ok(source_data) = fs::read_to_string(source_data_path) {
+                                                if let Ok(data) = serde_json::from_str::<SourceData>(&source_data) {
+                                                    stored_source_data = Some(data);
+                                                }
+                                            }
+                                        // }
 
                                         editor.add_video_item(
                                             &window_size,
@@ -1277,8 +1330,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             &Path::new(&file_path.clone()),
                                             new_id,
                                             dummy_sequence_id.to_string(),
-                                            None, // stored_mouse_positions
-                                            None, // stored_source_data
+                                            stored_mouse_positions, // stored_mouse_positions
+                                            stored_source_data, // stored_source_data
                                         );
 
                                         let source_duration_ms = editor
@@ -1534,7 +1587,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 available_capture_sources.set(filtered_sources.into_iter().map(|source| {
                                                     DropdownOption {
                                                         label: format!("{} ({}x{})", source.title, source.rect.width, source.rect.height),
-                                                        value: source.hwnd.to_string(),
+                                                        // value: source.hwnd.to_string(),
+                                                        value: format!("{}-{}x{}", source.hwnd.to_string(), source.rect.width, source.rect.height)
                                                     }
                                                 }).collect());
                                             }
@@ -1543,7 +1597,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             }
                                         }
                                     }
-                                    Command::StartScreenCapture { hwnd } => {
+                                    Command::StartScreenCapture { hwnd, width, height } => {
                                         println!("Processing start screen capture command for HWND: {}", hwnd);
 
                                         
@@ -1551,7 +1605,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         // Start recording (this will handle HWND conversion internally)
                                         // Note: start_video_capture expects (hwnd, width, height, project_id)
                                         // TODO: We need to get the window dimensions for the selected HWND
-                                        match editor.st_capture.start_video_capture(hwnd, 1920, 1080, project_id.to_string()) {
+                                        match editor.st_capture.start_video_capture(hwnd, width as u32, height as u32, project_id.to_string()) {
                                             Ok(_) => {
                                                 println!("Screen capture started successfully");
                                                 is_recording.set(true);
@@ -1575,12 +1629,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                                 is_recording.set(false);
 
-                                                // Automatically add the captured video to the current sequence
-                                                // video_path is already a String, not a PathBuf
-                                                // let tx_clone = command_tx.clone();
-                                                // let _ = tx_clone.send(Command::AddVideo {
-                                                //     file_path: video_path.clone()
-                                                // });
+                                                // Video will be automatically added via the completion callback
                                             }
                                             Err(e) => {
                                                 println!("Failed to stop screen capture: {}", e);

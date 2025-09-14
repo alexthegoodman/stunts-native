@@ -1397,6 +1397,7 @@ impl EditorState {
     /// squish keyframes into target_duration, keeping proportional time between them
     pub fn scale_keyframes(
         &self,
+        saved_state: &mut SavedState,
         selected_sequence_id: String,
         target_duration_s: f32,
     ) -> Vec<AnimationData> {
@@ -1404,11 +1405,11 @@ impl EditorState {
         let mut animations = Vec::new();
 
         // Find the animation with matching ID
-        let editor = self.editor.lock().unwrap();
-        let saved_state = editor
-            .saved_state
-            .as_ref()
-            .expect("Couldn't get saved state");
+        // let editor = self.editor.lock().unwrap();
+        // let saved_state = editor
+        //     .saved_state
+        //     .as_ref()
+        //     .expect("Couldn't get saved state");
         if let Some(sequence) = saved_state
             .sequences
             .iter()
@@ -1567,16 +1568,17 @@ impl EditorState {
 
         // after updated with motion paths
         let scaled_paths = self.scale_keyframes(
+            saved_state,
             selected_sequence_id.clone(),
             (source_duration_ms / 1000) as f32,
         );
 
-        {
-            let mut editor = self.editor.lock().unwrap();
-            let mut saved_state = editor
-                .saved_state
-                .as_mut()
-                .expect("Couldn't get Saved State");
+        // {
+        //     let mut editor = self.editor.lock().unwrap();
+        //     let mut saved_state = editor
+        //         .saved_state
+        //         .as_mut()
+        //         .expect("Couldn't get Saved State");
 
             saved_state.sequences.iter_mut().for_each(|s| {
                 if s.id == selected_sequence_id {
@@ -1584,8 +1586,8 @@ impl EditorState {
                 }
             });
 
-            save_saved_state_raw(saved_state.clone());
-        }
+        //     save_saved_state_raw(saved_state.clone());
+        // }
     }
 
     // Helper method to register a new signal
