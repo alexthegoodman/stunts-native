@@ -49,6 +49,7 @@ use chrono;
 use stunts_engine::saved_state::get_random_coords;
 use crate::helpers::utilities::{AuthState, AuthToken};
 use anyhow::Result;
+use stunts_engine::saved_state::save_saved_state_raw;
 
 mod primary_canvas;
 mod pipeline;
@@ -57,6 +58,7 @@ mod helpers;
 mod editor_state;
 mod event_handlers;
 mod text_properties;
+mod theme_sidebar;
 
 #[derive(Debug, Clone)]
 enum Command {
@@ -92,6 +94,7 @@ enum Command {
     SelectProject { project_id: String },
     CreateProject { name: String },
     CreateSequence { name: String, project_id: String },
+    ApplyTheme { theme: [f64; 5] },
 }
 
 // Authentication and Project Management structs  
@@ -1363,9 +1366,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sidebar_width,
     );
 
+    // Create themes sidebar widget  
+    let themes_sidebar_widget = theme_sidebar::create_themes_sidebar_panel(
+        command_tx.clone(),
+        sidebar_width,
+    );
+
     let sidebar_inner = column()
         .with_size(sidebar_width, 750.0)
-        .with_child(text_properties_widget);
+        .with_child(text_properties_widget)
+        .with_child(themes_sidebar_widget);
 
     let property_sidebar = container()
         .absolute() // Position absolutely - won't affect layout flow
@@ -2766,6 +2776,115 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         println!("Processing create sequence command: {} for project {}", name, project_id);
                                         // TODO: Implement sequence creation API call
                                     }
+                                    Command::ApplyTheme { theme } => {
+                                        println!("Applying theme: {:?}", theme);
+
+                                        let background_color_row = theme[0].trunc() as usize;
+                                        let background_color_column = (theme[0].fract() * 10.0) as usize;
+                                        let background_color_hex = theme_sidebar::THEME_COLORS[background_color_row][background_color_column];
+
+                                        let text_color_row = theme[4].trunc() as usize;
+                                        let text_color_column = (theme[4].fract() * 10.0) as usize;
+                                        let text_color_hex = theme_sidebar::THEME_COLORS[text_color_row][text_color_column];
+
+                                        // Parse hex to RGB
+                                        let background_color = hex_to_rgb(background_color_hex);
+                                        let text_color = hex_to_rgb(text_color_hex);
+                                        let font_index = theme[2];
+
+                                        println!("Updating text color: {:?}", text_color);
+                                        println!("Updating background color: {:?}", background_color);
+
+                                        let text_color_wgpu = rgb_to_wgpu(
+                                            text_color[0] as u8,
+                                            text_color[1] as u8,
+                                            text_color[2] as u8,
+                                            255.0,
+                                        );
+
+                                        let background_color_wgpu = rgb_to_wgpu(
+                                            background_color[0] as u8,
+                                            background_color[1] as u8,
+                                            background_color[2] as u8,
+                                            255.0,
+                                        );
+
+                                        // Update text items for current sequence
+                                        let ids_to_update: Vec<_> = editor
+                                            .text_items
+                                            .iter()
+                                            .filter(|text| {
+                                                text.current_sequence_id.to_string() == current_sequence_id.get()
+                                            })
+                                            .map(|text| text.id)
+                                            .collect();
+
+                                        if let Some(font_data) = editor.font_manager.font_data.get(font_index as usize) {
+                                            let font_id = font_data.0.clone();
+
+                                            for id in ids_to_update.clone() {
+                                                editor.update_text_color(id, text_color);
+                                                editor.update_text_font_family(font_id.clone(), id);
+                                                
+                                                // Update text fill colors
+                                                editor.update_text(id, "red_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[0] as f32));
+                                                editor.update_text(id, "green_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[1] as f32));
+                                                editor.update_text(id, "blue_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[2] as f32));
+                                            }
+                                        }
+
+                                        // Update background for current sequence
+                                        if let Ok(background_uuid) = uuid::Uuid::parse_str(&current_sequence_id.get()) {
+                                            editor.update_background(
+                                                background_uuid,
+                                                "red",
+                                                stunts_engine::editor::InputValue::Number(background_color[0] as f32),
+                                            );
+                                            editor.update_background(
+                                                background_uuid,
+                                                "green",
+                                                stunts_engine::editor::InputValue::Number(background_color[1] as f32),
+                                            );
+                                            editor.update_background(
+                                                background_uuid,
+                                                "blue",
+                                                stunts_engine::editor::InputValue::Number(background_color[2] as f32),
+                                            );
+                                        }
+
+                                        // Update saved state
+                                        if let Some(saved_state) = editor.saved_state.as_mut() {
+                                            saved_state.sequences.iter_mut().for_each(|s| {
+                                                if s.id == current_sequence_id.get() {
+                                                    // Update text items
+                                                    s.active_text_items.iter_mut().for_each(|t| {
+                                                        t.color = text_color;
+                                                        if let Some(background_fill) = t.background_fill.as_mut() {
+                                                            *background_fill = text_color;
+                                                        }
+                                                    });
+
+                                                    // Update sequence background
+                                                    if s.background_fill.is_none() {
+                                                        s.background_fill = Some(BackgroundFill::Color([
+                                                            wgpu_to_human(0.8) as i32,
+                                                            wgpu_to_human(0.8) as i32, 
+                                                            wgpu_to_human(0.8) as i32,
+                                                            255,
+                                                        ]));
+                                                    }
+
+                                                    if let Some(BackgroundFill::Color(fill)) = s.background_fill.as_mut() {
+                                                        *fill = background_color;
+                                                    }
+                                                }
+                                            });
+                                        }
+
+                                        save_saved_state_raw(editor.saved_state.clone().expect("Couldn't get saved state"));
+
+                                        println!("Theme applied successfully!");
+                                    }
                                     
                                 }
                             }
@@ -2799,4 +2918,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         }
     )
+}
+
+fn hex_to_rgb(hex: &str) -> [i32; 4] {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() == 6 {
+        let r = i32::from_str_radix(&hex[0..2], 16).unwrap_or(0);
+        let g = i32::from_str_radix(&hex[2..4], 16).unwrap_or(0);
+        let b = i32::from_str_radix(&hex[4..6], 16).unwrap_or(0);
+        [r, g, b, 255]
+    } else {
+        [128, 128, 128, 255] // fallback gray
+    }
 }
