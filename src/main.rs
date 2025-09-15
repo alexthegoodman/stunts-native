@@ -434,37 +434,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .expect("Couldn't get Saved State");
 
     // dummy project
-    let project_id = Uuid::new_v4();
+    let project_id = Uuid::new_v4(); // TODO: set with real id for export
     let destination_view = "scene".to_string();
-    let dummy_sequence_id = Uuid::new_v4();
+    // let dummy_sequence_id = Uuid::new_v4();
 
-    let mut dummy_sequences = Vec::new();
+    // let mut dummy_sequences = Vec::new();
 
-    dummy_sequences.push(Sequence  {
-        id: dummy_sequence_id.to_string(),
-        name: "Sequence 1".to_string(),
-        background_fill: Some(BackgroundFill::Color([
-            wgpu_to_human(0.8) as i32,
-            wgpu_to_human(0.8) as i32,
-            wgpu_to_human(0.8) as i32,
-            255,
-        ])),
-        duration_ms: 20000,
-        active_polygons: Vec::new(),
-        polygon_motion_paths: Vec::new(),
-        active_text_items: Vec::new(),
-        active_image_items: Vec::new(),
-        active_video_items: Vec::new(),
-    });
+    // dummy_sequences.push(Sequence  {
+    //     id: current_sequence_id.get().clone(),
+    //     name: "Sequence 1".to_string(),
+    //     background_fill: Some(BackgroundFill::Color([
+    //         wgpu_to_human(0.8) as i32,
+    //         wgpu_to_human(0.8) as i32,
+    //         wgpu_to_human(0.8) as i32,
+    //         255,
+    //     ])),
+    //     duration_ms: 20000,
+    //     active_polygons: Vec::new(),
+    //     polygon_motion_paths: Vec::new(),
+    //     active_text_items: Vec::new(),
+    //     active_image_items: Vec::new(),
+    //     active_video_items: Vec::new(),
+    // });
     
-    let saved_state = stunts_engine::saved_state::SavedState {
-        id: project_id.to_string(),
-        // name: "New Project".to_string(),
-        sequences: dummy_sequences,
-        timeline_state: SavedTimelineStateConfig {
-            timeline_sequences: Vec::new(),
-        },
-    };
+    // let saved_state = stunts_engine::saved_state::SavedState {
+    //     id: project_id.to_string(),
+    //     // name: "New Project".to_string(),
+    //     sequences: dummy_sequences,
+    //     timeline_state: SavedTimelineStateConfig {
+    //         timeline_sequences: Vec::new(),
+    //     },
+    // };
 
     let window_size = WindowSize {
         width: 1200,
@@ -483,8 +483,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // editor.canvas_hidden = !auth_state.get().is_authenticated && selected_project.is_some();
     editor.canvas_hidden = true;
 
-    editor.saved_state = Some(saved_state.clone());
-    editor.project_selected = Some(project_id.clone());
+    // editor.saved_state = Some(saved_state.clone()); // None till loaded
+    // editor.project_selected = Some(project_id.clone());
     editor.current_view = destination_view.clone();
 
     // Create channel for communicating commands from UI to main thread
@@ -545,6 +545,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Authentication state signals
     let local_projects_signal = Signal::new(local_projects.clone());
     let selected_project_signal = Signal::new(selected_project.clone());
+    let current_sequence_id = Signal::new(String::new());
     let show_editor = Signal::new(auth_state.get().is_authenticated && selected_project.is_some());
     let show_auth_form = Signal::new(!auth_state.get().is_authenticated);
     let show_project_list = Signal::new(auth_state.get().is_authenticated && selected_project.is_none());
@@ -811,11 +812,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_font_size(8.0) // Spacer
                 )))
                 // TODO: Add dynamic project list here
-                .with_child(Element::new_widget(Box::new(
-                    text("(Project list will be dynamically populated)")
-                        .with_font_size(12.0)
-                        .with_color(Color::rgba8(150, 150, 150, 255))
-                )))
+                .with_child(
+                    column()
+                        .with_reactive_children(local_projects_signal.clone(), {
+                            let command_tx = command_tx.clone();
+
+                            move |project_list| {
+                            let mut children = Vec::new();
+
+                            for project in project_list {
+                                children.push(Element::new_widget(Box::new(
+                                    button(&project.project_name)
+                                        .with_size(360.0, 32.0)
+                                        // .with_background_color(Color::rgba8(70, 70, 80, 255))
+                                        .with_font_size(14.0)
+                                        .on_click({                               
+                                            let tx = command_tx.clone();
+                                            let project_id = project.project_id.clone();
+                                            
+                                            move || {
+                                                // Handle project selection    
+                                                tx.send(Command::SelectProject { project_id: project_id.clone() });
+                                            }
+                                        })
+                                )));
+
+                                children.push(Element::new_widget(Box::new(
+                                    text("").with_font_size(4.0) // spacer
+                                )));
+                            }
+
+                            children
+                        }}).into_container_element()
+                )
                 .with_child(Element::new_widget(Box::new(
                     text("")
                         .with_font_size(12.0) // Spacer
@@ -1595,6 +1624,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     while let Ok(command) = rx.try_recv() {
                         if let Ok(mut editor) = editor_for_render.try_lock() {
                             if let Ok(mut editor_state) = state_for_render.try_lock() {
+                                let selected_project = selected_project_signal.get().unwrap_or(ProjectData {
+                                    project_id: Uuid::new_v4().to_string(),
+                                    project_name: "Secret name".to_string()
+                                });
+
                                 match command {
                                     Command::AddMotion => {
                                         println!("Processing add motion command from channel");
@@ -1634,12 +1668,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             polygon_config.clone(),
                                             polygon_config.name.clone(),
                                             polygon_config.id,
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                         );
 
                                         editor_state.add_saved_polygon(
                                             &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                             SavedPolygonConfig {
                                                 id: polygon_config.id.to_string().clone(),
                                                 name: polygon_config.name.clone(),
@@ -1678,7 +1712,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let updated_sequence = saved_state
                                             .sequences
                                             .iter()
-                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .find(|s| s.id == current_sequence_id.get().clone())
                                             .expect("Couldn't get updated sequence");
                                         
                                         let sequence_cloned = updated_sequence.clone();
@@ -1727,12 +1761,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             text_config.clone(),
                                             text_config.text.clone(),
                                             new_id,
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                         );
 
                                         editor_state.add_saved_text_item(
                                             &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                             SavedTextRendererConfig {
                                                 id: text_config.id.to_string(),
                                                 name: text_config.name.clone(),
@@ -1757,7 +1791,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let updated_sequence = saved_state
                                             .sequences
                                             .iter()
-                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .find(|s| s.id == current_sequence_id.get().clone())
                                             .expect("Couldn't get updated sequence");
                                         
                                         let sequence_cloned = updated_sequence.clone();
@@ -1802,12 +1836,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             image_config.clone(),
                                             &Path::new(&file_path.clone()),
                                             new_id,
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                         );
 
                                         editor_state.add_saved_image_item(
                                             &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                             SavedStImageConfig {
                                                 id: image_config.id.clone(),
                                                 name: image_config.name.clone(),
@@ -1828,7 +1862,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let updated_sequence = saved_state
                                             .sequences
                                             .iter()
-                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .find(|s| s.id == current_sequence_id.get().clone())
                                             .expect("Couldn't get updated sequence");
                                         
                                         let sequence_cloned = updated_sequence.clone();
@@ -1901,7 +1935,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             video_config.clone(),
                                             &Path::new(&file_path.clone()),
                                             new_id,
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                             stored_mouse_positions, // stored_mouse_positions
                                             stored_source_data, // stored_source_data
                                         );
@@ -1915,7 +1949,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         editor_state.add_saved_video_item(
                                             &mut editor.saved_state.as_mut().expect("Couldn't get saved state"),
-                                            dummy_sequence_id.to_string(),
+                                            current_sequence_id.get().clone(),
                                             SavedStVideoConfig {
                                                 id: video_config.id.clone(),
                                                 name: video_config.name.clone(),
@@ -1938,7 +1972,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let updated_sequence = saved_state
                                             .sequences
                                             .iter()
-                                            .find(|s| s.id == dummy_sequence_id.to_string())
+                                            .find(|s| s.id == current_sequence_id.get().clone())
                                             .expect("Couldn't get updated sequence");
                                         
                                         let sequence_cloned = updated_sequence.clone();
@@ -2452,6 +2486,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     
                                                     // Set the current sequence data
                                                     if let Some(sequence) = saved_state.sequences.first() {
+                                                        current_sequence_id.set(sequence.id.clone());
                                                         editor.current_sequence_data = Some(sequence.clone());
                                                         editor.update_motion_paths(sequence);
                                                     }
@@ -2507,6 +2542,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                                 active_image_items: Vec::new(),
                                                                 active_video_items: Vec::new(),
                                                             };
+
+                                                            current_sequence_id.set(sequence_id.clone().to_string());
                                                             
                                                             saved_state.sequences = vec![first_sequence];
                                                             saved_state.timeline_state = arrange_sequences_in_series(&mut saved_state.sequences);
