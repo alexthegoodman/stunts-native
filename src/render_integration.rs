@@ -206,6 +206,27 @@ pub fn render_stunts_content(
                     &camera.window_size,
                 );
             }
+        } else if let Some(dragging_id) = editor_lock.dragging_text {
+            if dragging_id == path.source_polygon_id {
+                path.transform.update_uniform_buffer(
+                    &queue,
+                    &camera.window_size,
+                );
+            }
+        } else if let Some(dragging_id) = editor_lock.dragging_image {
+            if dragging_id == path.source_polygon_id {
+                path.transform.update_uniform_buffer(
+                    &queue,
+                    &camera.window_size,
+                );
+            }
+        } else if let Some(dragging_id) = editor_lock.dragging_video {
+            if dragging_id == path.source_polygon_id {
+                path.transform.update_uniform_buffer(
+                    &queue,
+                    &camera.window_size,
+                );
+            }
         }
 
         render_pass.set_bind_group(3, &path.bind_group, &[]);
