@@ -22,5 +22,5 @@ serde_with = "3.11.0"
 directories = "5.0.1"
 reqwest = { version = "0.12.12", features = ["json"] }
 rfd = "0.15.2"
-keyring = "3.2.0"
+keyring = { version = "3.2.0", features = ["windows-native"] }
 anyhow = "1.0"

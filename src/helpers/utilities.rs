@@ -78,10 +78,12 @@ impl AuthState {
             return false;
         }
 
-        match &self.subscription {
-            Some(sub) => matches!(sub.subscription_status.as_str(), "ACTIVE" | "TRIALING"),
-            None => false,
-        }
+        return true;
+
+        // match &self.subscription {
+        //     Some(sub) => matches!(sub.subscription_status.as_str(), "ACTIVE" | "TRIALING"),
+        //     None => false,
+        // }
     }
 }
 

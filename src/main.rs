@@ -253,24 +253,52 @@ fn store_auth_token(token: &AuthToken) -> anyhow::Result<()> {
 }
 
 fn get_stored_auth_token() -> Option<AuthToken> {
-    if let Ok(entry) = Entry::new("stunts-native", "auth_token") {
-        if let Ok(token_json) = entry.get_password() {
-            if let Ok(token) = serde_json::from_str::<AuthToken>(&token_json) {
-                // Check if token is expired
-                if let Some(expiry) = token.expiry {
-                    if expiry > chrono::Utc::now() {
-                        return Some(token);
+    println!("get_stored_auth_token");
+    match Entry::new("stunts-native", "auth_token") {
+        Ok(entry) => {
+            println!("Entry created successfully");
+            match entry.get_password() {
+                Ok(token_json) => {
+                    println!("Got password from keyring, length: {}", token_json.len());
+                    match serde_json::from_str::<AuthToken>(&token_json) {
+                        Ok(token) => {
+                            // Check if token is expired
+                            if let Some(expiry) = token.expiry {
+                                let is_valid = expiry > chrono::Utc::now();
+                                println!("Token expiry check: expired = {}, expiry = {:?}", !is_valid, expiry);
+                                if is_valid {
+                                    println!("Returning valid token");
+                                    return Some(token);
+                                } else {
+                                    println!("Token is expired");
+                                }
+                            } else {
+                                println!("Token has no expiry, returning it");
+                                return Some(token);
+                            }
+                        }
+                        Err(e) => {
+                            println!("Failed to parse token JSON: {}", e);
+                            println!("Raw token data: {}", token_json);
+                        }
                     }
+                }
+                Err(e) => {
+                    println!("Failed to get password from keyring: {}", e);
                 }
             }
         }
+        Err(e) => {
+            println!("Failed to create keyring entry: {}", e);
+        }
     }
+    println!("Returning None - no valid token found");
     None
 }
 
 fn clear_stored_auth_token() -> anyhow::Result<()> {
     let entry = Entry::new("stunts-native", "auth_token")?;
-    entry.delete_credential()?;
+    // entry.delete_credential()?; // how to delete a password?
     Ok(())
 }
 
@@ -344,19 +372,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         is_authenticated: false,
         subscription: None,
     };
+
+    let auth_state = Signal::new(auth_state.clone());
     
     let mut local_projects: Vec<ProjectData> = Vec::new();
     let mut selected_project: Option<ProjectData> = None;
     
     // Check for stored authentication token
     if let Some(stored_token) = get_stored_auth_token() {
-        auth_state.token = Some(stored_token.clone());
+        let new_auth_state = AuthState {
+            token: Some(stored_token.clone()),
+            is_authenticated: true,
+            subscription: None,
+        };
+
+        auth_state.set(new_auth_state);
         
         // Try to fetch subscription details to validate token
         match helpers::utilities::fetch_subscription_details(&stored_token.token).await {
             Ok(subscription) => {
-                auth_state.is_authenticated = true;
-                auth_state.subscription = Some(subscription);
+                // auth_state.get().is_authenticated = true;
+                // auth_state.subscription = Some(subscription);
+
+                println!("get here!!");
+
+                let new_auth_state = AuthState {
+                    token: Some(stored_token.clone()),
+                    is_authenticated: true,
+                    subscription: Some(subscription),
+                };
+
+                auth_state.set(new_auth_state);
                 
                 // Load local projects since user is authenticated
                 match load_local_projects() {
@@ -373,7 +419,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Failed to validate stored token: {}", e);
                 // Clear invalid token
                 let _ = clear_stored_auth_token();
-                auth_state.token = None;
+                let new_auth_state = AuthState {
+                    token: None,
+                    is_authenticated: false,
+                    subscription: None,
+                };
+
+                auth_state.set(new_auth_state);
             }
         }
     }
@@ -428,7 +480,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut editor = Editor::new(viewport.clone(), project_id.clone().to_string());
 
     // Set canvas visibility based on authentication state
-    editor.canvas_hidden = !auth_state.is_authenticated;
+    // editor.canvas_hidden = !auth_state.get().is_authenticated && selected_project.is_some();
+    editor.canvas_hidden = true;
 
     editor.saved_state = Some(saved_state.clone());
     editor.project_selected = Some(project_id.clone());
@@ -490,12 +543,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sidebar_width = 300.0;
     
     // Authentication state signals
-    let auth_state_signal = Signal::new(auth_state.clone());
     let local_projects_signal = Signal::new(local_projects.clone());
     let selected_project_signal = Signal::new(selected_project.clone());
-    let show_editor = Signal::new(auth_state.is_authenticated);
-    let show_auth_form = Signal::new(!auth_state.is_authenticated);
-    let show_project_list = Signal::new(auth_state.is_authenticated && selected_project.is_none());
+    let show_editor = Signal::new(auth_state.get().is_authenticated && selected_project.is_some());
+    let show_auth_form = Signal::new(!auth_state.get().is_authenticated);
+    let show_project_list = Signal::new(auth_state.get().is_authenticated && selected_project.is_none());
     let show_project_creation = Signal::new(false);
     let auth_loading = Signal::new(false);
     
@@ -885,7 +937,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_child(Element::new_widget(Box::new(
                             button("Create")
                                 .with_font_size(14.0)
-                                .with_width(100.0)
+                                .with_width(300.0)
                                 .with_height(35.0)
                                 .with_backgrounds(
                                     Background::Gradient(button_normal.clone()),
@@ -2284,7 +2336,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         println!("Processing sign in command");
                                         auth_loading.set(true);
                                         
-                                        let auth_state_signal = auth_state_signal.clone();
+                                        let auth_state = auth_state.clone();
                                         let local_projects_signal = local_projects_signal.clone();
                                         let show_auth_form = show_auth_form.clone();
                                         let show_project_list = show_project_list.clone();
@@ -2317,7 +2369,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                             // Load local projects
                                                             match load_local_projects() {
                                                                 Ok(projects) => {
-                                                                    auth_state_signal.set(new_auth_state);
+                                                                    auth_state.set(new_auth_state);
                                                                     local_projects_signal.set(projects);
                                                                     auth_loading.set(false);
                                                                     show_auth_form.set(false);
@@ -2356,7 +2408,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             is_authenticated: false,
                                             subscription: None,
                                         };
-                                        auth_state_signal.set(new_auth_state);
+                                        auth_state.set(new_auth_state);
                                         local_projects_signal.set(Vec::new());
                                         selected_project_signal.set(None);
                                         
@@ -2422,7 +2474,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         println!("Processing create project command: {}", name);
                                         
                                         // Check if user can create projects based on subscription
-                                        let auth_state = auth_state_signal.get();
+                                        let auth_state = auth_state.get();
                                         if auth_state.can_create_projects() {
                                             match create_local_project(&name) {
                                                 Ok(new_project) => {
