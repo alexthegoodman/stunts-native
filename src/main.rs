@@ -35,7 +35,7 @@ use uuid::Uuid;
 use rand::Rng;
 use undo::{Edit, Record};
 use stunts_engine::{
-    animations::{BackgroundFill, Sequence},
+    animations::{BackgroundFill, Sequence, ObjectType},
 };
 use winit::event::{ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta};
 use winit::dpi::{LogicalSize, PhysicalSize};
@@ -59,6 +59,7 @@ mod editor_state;
 mod event_handlers;
 mod text_properties;
 mod theme_sidebar;
+mod animation_ideas;
 
 #[derive(Debug, Clone)]
 enum Command {
@@ -71,6 +72,7 @@ enum Command {
         description: String,
         position: String,
         scale: String,
+        rotation: String,
         opacity: String,
     },
     UpdateTextProperty {
@@ -140,6 +142,7 @@ enum ApiKeyframeValue {
     Position { Position: ApiPosition },
     Scale { Scale: i32 },
     Opacity { Opacity: i32 },
+    Rotation { Rotation: i32 },
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
@@ -187,7 +190,7 @@ impl Default for ApiPosition {
 
 // Conversion functions
 impl ApiAnimationData {
-    fn to_animation_data(self, polygon_id: String) -> stunts_engine::animations::AnimationData {
+    fn to_animation_data(self, polygon_id: String, object_type: ObjectType) -> stunts_engine::animations::AnimationData {
         use stunts_engine::animations::{AnimationData, AnimationProperty, UIKeyframe, KeyframeValue, EasingType, ObjectType};
         use stunts_engine::editor::PathType;
         
@@ -203,6 +206,9 @@ impl ApiAnimationData {
                     }
                     ApiKeyframeValue::Opacity { Opacity: opacity } => {
                         KeyframeValue::Opacity(opacity)
+                    }
+                    ApiKeyframeValue::Rotation { Rotation: rotation } => {
+                        KeyframeValue::Rotation(rotation)
                     }
                 };
                 
@@ -234,7 +240,7 @@ impl ApiAnimationData {
         
         AnimationData {
             id: self.id,
-            object_type: ObjectType::Polygon,
+            object_type,
             polygon_id,
             duration: Duration::from_millis(self.duration as u64),
             start_time_ms: 0,
@@ -545,6 +551,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Sidebar state for property editing
     let sidebar_visible = Signal::new(false);
     let sidebar_width = 300.0;
+    let text_properties_visible = Signal::new(false);
+    let themes_sidebar_visible = Signal::new(false);
     
     // Authentication state signals
     let local_projects_signal = Signal::new(local_projects.clone());
@@ -566,6 +574,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let position_text = Signal::new("".to_string());
     let scale_text = Signal::new("".to_string());
     let opacity_text = Signal::new("".to_string());
+    let rotation_text = Signal::new("".to_string());
     
     let motion_form = container()
         .with_size(400.0, 450.0)
@@ -595,12 +604,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_width(350.0)
                         .with_height(30.0)
                         .with_placeholder("ex. a basketball")
-                        // .with_signal(description_text.clone())
+                        .with_signal(description_text.clone())
                         .on_change({
                             let description_text = description_text.clone();
 
                             move |text| {
-                                description_text.set(text.to_string());
+                                // description_text.set(text.to_string());
                             }
                         })
                 )))
@@ -614,12 +623,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_width(350.0)
                         .with_height(30.0)
                         .with_placeholder("ex. bounces up and down")
-                        // .with_signal(position_text.clone())
+                        .with_signal(position_text.clone())
                         .on_change({
                             let position_text = position_text.clone();
 
                             move |text| {
-                                position_text.set(text.to_string());
+                                // position_text.set(text.to_string());
                             }
                         })
                 )))
@@ -633,12 +642,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_width(350.0)
                         .with_height(30.0)
                         .with_placeholder("ex. scales to fullscreen")
-                        // .with_signal(scale_text.clone())
+                        .with_signal(scale_text.clone())
                         .on_change({
                             let scale_text = scale_text.clone();
 
                             move |text| {
-                                scale_text.set(text.to_string());
+                                // scale_text.set(text.to_string());
                             }
                         })
                 )))
@@ -652,12 +661,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_width(350.0)
                         .with_height(30.0)
                         .with_placeholder("ex. fades in")
-                        // .with_signal(opacity_text.clone())
+                        .with_signal(opacity_text.clone())
                         .on_change({
                             let opacity_text = opacity_text.clone();
 
                             move |text| {
-                                opacity_text.set(text.to_string());
+                                // opacity_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Rotation:")
+                        .with_font_size(12.0)
+                        .with_color(Color::rgba8(80, 40, 0, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    input()
+                        .with_width(350.0)
+                        .with_height(30.0)
+                        .with_placeholder("ex. spins 360 degrees")
+                        .with_signal(rotation_text.clone())
+                        .on_change({
+                            let rotation_text = rotation_text.clone();
+
+                            move |text| {
+                                // rotation_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    button("Try Random Animation")
+                        .with_font_size(12.0)
+                        .with_width(150.0)
+                        .with_height(30.0)
+                        .with_backgrounds(
+                            Background::Gradient(button_normal.clone()),
+                            Background::Gradient(button_hover.clone()),
+                            Background::Gradient(button_pressed.clone())
+                        )
+                        .on_click({
+                            let description_text = description_text.clone();
+                            let position_text = position_text.clone();
+                            let scale_text = scale_text.clone();
+                            let opacity_text = opacity_text.clone();
+                            let rotation_text = rotation_text.clone();
+
+                            move || {
+                                let ideas = crate::animation_ideas::get_animation_ideas();
+                                if !ideas.is_empty() {
+                                    let random_index = rand::random::<usize>() % ideas.len();
+                                    let random_idea = &ideas[random_index];
+
+                                    println!("set descrip {:?}", random_idea.object_description.clone());
+                                    
+                                    description_text.set(random_idea.object_description.clone());
+                                    position_text.set(random_idea.position_description.clone());
+                                    scale_text.set(random_idea.scale_description.clone());
+                                    opacity_text.set(random_idea.opacity_description.clone());
+                                    rotation_text.set(random_idea.rotation_description.clone());
+                                }
                             }
                         })
                 )))
@@ -677,6 +739,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let position = position_text.clone();
                             let scale = scale_text.clone();
                             let opacity = opacity_text.clone();
+                            let rotation = rotation_text.clone();
                             let editor_for_api = editor.clone();
                             let tx = command_tx.clone();
 
@@ -687,6 +750,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     position: position.get(),
                                     scale: scale.get(),
                                     opacity: opacity.get(),
+                                    rotation: rotation.get()
                                 });
                             }
                         })
@@ -794,7 +858,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_position(50.0, 50.0)
         .with_child(
             column()
-                .with_size(800.0, 600.0)
+                .with_size(800.0, 400.0)
                 .with_main_axis_alignment(MainAxisAlignment::Start)
                 .with_cross_axis_alignment(CrossAxisAlignment::Start)
                 .with_child(Element::new_widget(Box::new(
@@ -992,7 +1056,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let button_square = button("Add Square")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1008,7 +1072,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let button_text = button("Add Text")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1024,7 +1088,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let button_image = button("Add Image")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1053,7 +1117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let button_video = button("Add Video")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1090,7 +1154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let button_capture = button(capture_button_text)
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1113,7 +1177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // turns on a mode in the editor so the user can draw arrows by clicking and dragging or dots by just clicking
     let button2 = button("Add Motion")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1130,7 +1194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // optional button for regenerate each object according to its arrow (maybe too much at once? could batch it)
     let button3 = button("Regenerate All")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1148,7 +1212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let export_button_text = Signal::new("Export".to_string());
     let button4 = button_signal(export_button_text.clone())
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1171,7 +1235,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Play / pause the video
     let button5 = button("Play / Pause")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1188,7 +1252,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Toggle sidebar for property editing
     let button_properties = button("Properties")
         .with_font_size(10.0)
-        .with_width(100.0)
+        .with_width(90.0)
         .with_height(20.0)
         .with_backgrounds(
             Background::Gradient(button_normal.clone()),
@@ -1197,8 +1261,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .on_click({
             let sidebar_visible = sidebar_visible.clone();
+            let text_properties_visible = text_properties_visible.clone();
+
             move || {
                 sidebar_visible.set(!sidebar_visible.get());
+                text_properties_visible.set(!text_properties_visible.get());
+            }
+        });
+
+    // Toggle sidebar for themes
+    let button_themes = button("Themes")
+        .with_font_size(10.0)
+        .with_width(90.0)
+        .with_height(20.0)
+        .with_backgrounds(
+            Background::Gradient(button_normal.clone()),
+            Background::Gradient(button_hover.clone()),
+            Background::Gradient(button_pressed.clone())
+        )
+        .on_click({
+            let sidebar_visible = sidebar_visible.clone();
+            let themes_sidebar_visible = themes_sidebar_visible.clone();
+
+            move || {
+                sidebar_visible.set(!sidebar_visible.get());
+                themes_sidebar_visible.set(!themes_sidebar_visible.get());
             }
         });
 
@@ -1312,7 +1399,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );    
 
     let left_tools = row()
-        .with_size(1100.0, 50.0)
+        .with_size(1200.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(Element::new_widget(Box::new(button2)))
@@ -1325,6 +1412,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(Element::new_widget(Box::new(button3)))
         .with_child(Element::new_widget(Box::new(button4)))
         .with_child(Element::new_widget(Box::new(button_properties)))
+        .with_child(Element::new_widget(Box::new(button_themes)))
         .with_child(Element::new_widget(Box::new(
             text_signal(export_status.clone())
                 .with_font_size(10.0)
@@ -1372,10 +1460,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sidebar_width,
     );
 
+    let text_properties_container = container()
+                .with_display_signal(text_properties_visible.clone())
+                .with_child(text_properties_widget);
+
+    let themes_sidebar_container = container()
+                .with_display_signal(themes_sidebar_visible.clone())
+                .with_child(themes_sidebar_widget);
+
     let sidebar_inner = column()
         .with_size(sidebar_width, 750.0)
-        .with_child(text_properties_widget)
-        .with_child(themes_sidebar_widget);
+        .with_child(text_properties_container.into_container_element())
+        .with_child(themes_sidebar_container.into_container_element());
 
     let property_sidebar = container()
         .absolute() // Position absolutely - won't affect layout flow
@@ -2006,7 +2102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         println!("Video item added to editor successfully: {}", video_config.id);
                                     }
-                                    Command::SubmitMotionForm { description, position, scale, opacity } => {
+                                    Command::SubmitMotionForm { description, position, scale, opacity, rotation } => {
                                         println!("Processing motion form submission from channel");
 
                                         // Reset canvas hidden state
@@ -2027,6 +2123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             "position": position,
                                             "scale": scale,
                                             "opacity": opacity,
+                                            "rotation": rotation,
                                             "arrow_positions": arrow_positions.map(|(p1, p2)| serde_json::json!({"startX": p1.x, "startY": p1.y, "endX": p2.x, "endY": p2.y})),
                                             "object_dimensions": object_dimensions.map(|(w, h)| serde_json::json!({"width": w, "height": h}))
                                         });
@@ -2036,6 +2133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         
                                         // Get the polygon_id before the async block to avoid Send issues
                                         let polygon_id = editor.last_motion_arrow_object_id.to_string();
+                                        let object_type = editor.last_motion_arrow_object_type.clone();
 
                                         let display_motion_form = display_motion_form.clone();
                                         let display_motion_loading = display_motion_loading.clone();
@@ -2068,7 +2166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                                         println!("Successfully parsed API response format: {:?}", api_data);
                                                                         
                                                                         // Convert to the expected format
-                                                                        let animation_data = api_data.to_animation_data(polygon_id);
+                                                                        let animation_data = api_data.to_animation_data(polygon_id, object_type);
                                                                         println!("Converted to AnimationData format: {:?}", animation_data);
                                                                         
                                                                         // Send the response back through the channel
@@ -2126,6 +2224,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                         }
                                                     } else {
                                                         println!("API call failed with status: {}", response.status());
+                                                        display_motion_form.set(false);
+                                                        display_motion_loading.set(false);
                                                     }
                                                 }
                                                 Err(e) => println!("API call failed: {}", e),
