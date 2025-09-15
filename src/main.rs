@@ -27,6 +27,7 @@ use stunts_engine::{
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
 };
+use stunts_engine::editor::rgb_to_wgpu;
 use stunts_engine::st_image::{SavedStImageConfig, StImage, StImageConfig};
 use stunts_engine::st_video::{SavedStVideoConfig, StVideoConfig};
 use stunts_engine::text_due::{SavedTextRendererConfig, TextRenderer, TextRendererConfig};
@@ -2483,11 +2484,94 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     editor.saved_state = Some(saved_state.clone());
                                                     editor.project_selected = Some(uuid::Uuid::parse_str(&project_id).unwrap());
                                                     editor.current_view = "scene".to_string();
+
+                                                    saved_state.sequences.iter().enumerate().for_each(|(i, s)| {
+                                                        editor.restore_sequence_objects(
+                                                            &s,
+                                                            true,
+                                                        );
+                                                    });
                                                     
                                                     // Set the current sequence data
                                                     if let Some(sequence) = saved_state.sequences.first() {
                                                         current_sequence_id.set(sequence.id.clone());
                                                         editor.current_sequence_data = Some(sequence.clone());
+
+                                                        editor.polygons.iter_mut().for_each(|p| {
+                                                            p.hidden = true;
+                                                        });
+                                                        editor.image_items.iter_mut().for_each(|i| {
+                                                            i.hidden = true;
+                                                        });
+                                                        editor.text_items.iter_mut().for_each(|t| {
+                                                            t.hidden = true;
+                                                        });
+                                                        editor.video_items.iter_mut().for_each(|t| {
+                                                            t.hidden = true;
+                                                        });
+
+                                                        sequence.active_polygons.iter().for_each(|ap| {
+                                                            let polygon = editor
+                                                                .polygons
+                                                                .iter_mut()
+                                                                .find(|p| p.id.to_string() == ap.id)
+                                                                .expect("Couldn't find polygon");
+                                                            polygon.hidden = false;
+                                                        });
+                                                        sequence.active_image_items.iter().for_each(|si| {
+                                                            let image = editor
+                                                                .image_items
+                                                                .iter_mut()
+                                                                .find(|i| i.id.to_string() == si.id)
+                                                                .expect("Couldn't find image");
+                                                            image.hidden = false;
+                                                        });
+                                                        sequence.active_text_items.iter().for_each(|tr| {
+                                                            let text = editor
+                                                                .text_items
+                                                                .iter_mut()
+                                                                .find(|t| t.id.to_string() == tr.id)
+                                                                .expect("Couldn't find image");
+                                                            text.hidden = false;
+                                                        });
+                                                        sequence.active_video_items.iter().for_each(|tr| {
+                                                            let video = editor
+                                                                .video_items
+                                                                .iter_mut()
+                                                                .find(|t| t.id.to_string() == tr.id)
+                                                                .expect("Couldn't find image");
+                                                            video.hidden = false;
+                                                        });
+
+                                                        let mut background_fill = Some(BackgroundFill::Color([
+                                                            wgpu_to_human(0.8) as i32,
+                                                            wgpu_to_human(0.8) as i32,
+                                                            wgpu_to_human(0.8) as i32,
+                                                            255,
+                                                        ]));
+
+                                                        if sequence.background_fill.is_some() {
+                                                            background_fill = sequence.background_fill.clone();
+                                                        }
+
+                                                        match background_fill.expect("Couldn't get default background fill")
+                                                        {
+                                                            BackgroundFill::Color(fill) => {
+                                                                editor.replace_background(
+                                                                    uuid::Uuid::parse_str(&sequence.id).unwrap(),
+                                                                    rgb_to_wgpu(
+                                                                        fill[0] as u8,
+                                                                        fill[1] as u8,
+                                                                        fill[2] as u8,
+                                                                        fill[3] as f32,
+                                                                    ),
+                                                                );
+                                                            }
+                                                            _ => {
+                                                                println!("Not supported yet...");
+                                                            }
+                                                        }
+
                                                         editor.update_motion_paths(sequence);
                                                     }
                                                     
@@ -2555,10 +2639,93 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                             editor.saved_state = Some(saved_state.clone());
                                                             editor.project_selected = Some(uuid::Uuid::parse_str(&new_project.project_id).unwrap());
                                                             editor.current_view = "scene".to_string();
+
+                                                            saved_state.sequences.iter().enumerate().for_each(|(i, s)| {
+                                                                editor.restore_sequence_objects(
+                                                                    &s,
+                                                                    true,
+                                                                );
+                                                            });
                                                             
                                                             // Set the current sequence data
                                                             if let Some(sequence) = saved_state.sequences.first() {
                                                                 editor.current_sequence_data = Some(sequence.clone());
+
+                                                                editor.polygons.iter_mut().for_each(|p| {
+                                                                    p.hidden = true;
+                                                                });
+                                                                editor.image_items.iter_mut().for_each(|i| {
+                                                                    i.hidden = true;
+                                                                });
+                                                                editor.text_items.iter_mut().for_each(|t| {
+                                                                    t.hidden = true;
+                                                                });
+                                                                editor.video_items.iter_mut().for_each(|t| {
+                                                                    t.hidden = true;
+                                                                });
+
+                                                                sequence.active_polygons.iter().for_each(|ap| {
+                                                                    let polygon = editor
+                                                                        .polygons
+                                                                        .iter_mut()
+                                                                        .find(|p| p.id.to_string() == ap.id)
+                                                                        .expect("Couldn't find polygon");
+                                                                    polygon.hidden = false;
+                                                                });
+                                                                sequence.active_image_items.iter().for_each(|si| {
+                                                                    let image = editor
+                                                                        .image_items
+                                                                        .iter_mut()
+                                                                        .find(|i| i.id.to_string() == si.id)
+                                                                        .expect("Couldn't find image");
+                                                                    image.hidden = false;
+                                                                });
+                                                                sequence.active_text_items.iter().for_each(|tr| {
+                                                                    let text = editor
+                                                                        .text_items
+                                                                        .iter_mut()
+                                                                        .find(|t| t.id.to_string() == tr.id)
+                                                                        .expect("Couldn't find image");
+                                                                    text.hidden = false;
+                                                                });
+                                                                sequence.active_video_items.iter().for_each(|tr| {
+                                                                    let video = editor
+                                                                        .video_items
+                                                                        .iter_mut()
+                                                                        .find(|t| t.id.to_string() == tr.id)
+                                                                        .expect("Couldn't find image");
+                                                                    video.hidden = false;
+                                                                });
+
+                                                                let mut background_fill = Some(BackgroundFill::Color([
+                                                                    wgpu_to_human(0.8) as i32,
+                                                                    wgpu_to_human(0.8) as i32,
+                                                                    wgpu_to_human(0.8) as i32,
+                                                                    255,
+                                                                ]));
+
+                                                                if sequence.background_fill.is_some() {
+                                                                    background_fill = sequence.background_fill.clone();
+                                                                }
+
+                                                                match background_fill.expect("Couldn't get default background fill")
+                                                                {
+                                                                    BackgroundFill::Color(fill) => {
+                                                                        editor.replace_background(
+                                                                            uuid::Uuid::parse_str(&sequence.id).unwrap(),
+                                                                            rgb_to_wgpu(
+                                                                                fill[0] as u8,
+                                                                                fill[1] as u8,
+                                                                                fill[2] as u8,
+                                                                                fill[3] as f32,
+                                                                            ),
+                                                                        );
+                                                                    }
+                                                                    _ => {
+                                                                        println!("Not supported yet...");
+                                                                    }
+                                                                }
+                                                                
                                                                 editor.update_motion_paths(sequence);
                                                             }
                                                             
