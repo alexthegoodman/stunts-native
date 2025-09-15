@@ -1,5 +1,5 @@
 use stunts_engine::saved_state::SavedState;
-use super::utilities::{get_ground_truth_dir, load_projects_datafile};
+use stunts_engine::saved_state::{get_ground_truth_dir, load_projects_datafile};
 use chrono::{DateTime, Local};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};

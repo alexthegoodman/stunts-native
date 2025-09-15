@@ -22,7 +22,7 @@ use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader, ObjectProperty},
     capture::{StCapture, get_sources, WindowInfo, MousePosition, SourceData},
     export::exporter::{ExportProgress, Exporter},
-    timelines::{SavedTimelineStateConfig, TimelineSequence},
+    timelines::{SavedTimelineStateConfig, TimelineSequence, TrackType},
 };
 use stunts_engine::polygon::{
     Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
@@ -42,6 +42,12 @@ use stunts_engine::gpu_resources::GpuResources;
 use editor_state::EditorState;
 use std::fs;
 use stunts_engine::editor::wgpu_to_human;
+use keyring::Entry;
+use stunts_engine::saved_state::{ProjectData, ProjectsDataFile};
+use chrono;
+use stunts_engine::saved_state::get_random_coords;
+use crate::helpers::utilities::{AuthState, AuthToken};
+use anyhow::Result;
 
 mod primary_canvas;
 mod pipeline;
@@ -76,6 +82,28 @@ enum Command {
     Export {
         progress_tx: tokio_mpsc::UnboundedSender<ExportProgress>,
     },
+    // Authentication commands
+    SubmitSignIn { email: String, password: String },
+    SignOut,
+    // CheckAuthentication,
+    // Project management commands
+    LoadProjects,
+    SelectProject { project_id: String },
+    CreateProject { name: String },
+    CreateSequence { name: String, project_id: String },
+}
+
+// Authentication and Project Management structs  
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct JwtData {
+    token: String,
+    expiry: i64, // Unix timestamp
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct AuthResponse {
+    #[serde(rename = "jwtData")]
+    jwt_data: JwtData,
 }
 
 // Intermediate structs to parse the API response format
@@ -216,9 +244,139 @@ fn split_format_string(input: &str) -> Vec<&str> {
     input.split(&['-', 'x'][..]).collect()
 }
 
+// Authentication helper functions using keyring for token storage
+fn store_auth_token(token: &AuthToken) -> anyhow::Result<()> {
+    let entry = Entry::new("stunts-native", "auth_token")?;
+    let token_json = serde_json::to_string(token)?;
+    entry.set_password(&token_json)?;
+    Ok(())
+}
+
+fn get_stored_auth_token() -> Option<AuthToken> {
+    if let Ok(entry) = Entry::new("stunts-native", "auth_token") {
+        if let Ok(token_json) = entry.get_password() {
+            if let Ok(token) = serde_json::from_str::<AuthToken>(&token_json) {
+                // Check if token is expired
+                if let Some(expiry) = token.expiry {
+                    if expiry > chrono::Utc::now() {
+                        return Some(token);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn clear_stored_auth_token() -> anyhow::Result<()> {
+    let entry = Entry::new("stunts-native", "auth_token")?;
+    entry.delete_credential()?;
+    Ok(())
+}
+
+async fn authenticate_user(email: &str, password: &str) -> anyhow::Result<AuthResponse> {
+    let client = reqwest::Client::new();
+    let auth_data = serde_json::json!({
+        "email": email,
+        "password": password
+    });
+    
+    let response = client
+        .post("http://localhost:3000/api/auth/login")
+        .json(&auth_data)
+        .send()
+        .await?;
+    
+    if response.status().is_success() {
+        let auth_response: AuthResponse = response.json().await?;
+        Ok(auth_response)
+    } else {
+        Err(anyhow::anyhow!("Authentication failed: {}", response.status()))
+    }
+}
+
+// Load projects locally using utilities.rs functions
+fn load_local_projects() -> anyhow::Result<Vec<ProjectData>> {
+    let projects_datafile = stunts_engine::saved_state::load_projects_datafile()?;
+    Ok(projects_datafile.projects)
+}
+
+// Create project locally using utilities.rs functions
+fn create_local_project(name: &str) -> anyhow::Result<ProjectData> {
+    let saved_state = stunts_engine::saved_state::create_project_state(name.to_string())?;
+    
+    // Return project data that matches the created project
+    Ok(ProjectData {
+        project_id: saved_state.id.clone(),
+        project_name: name.to_string(),
+    })
+}
+
+// Helper function to arrange sequences in series automatically
+fn arrange_sequences_in_series(sequences: &mut Vec<Sequence>) -> SavedTimelineStateConfig {
+    let mut timeline_sequences = Vec::new();
+    let mut current_start_time = 0;
+    
+    for (index, sequence) in sequences.iter().enumerate() {
+        timeline_sequences.push(TimelineSequence {
+            id: Uuid::new_v4().to_string(),
+            sequence_id: sequence.id.clone(),
+            start_time_ms: current_start_time,
+            track_type: TrackType::Video,
+        });
+        current_start_time += sequence.duration_ms;
+        
+        println!("Arranged sequence {} '{}' at time {}ms", index + 1, sequence.name, current_start_time - sequence.duration_ms);
+    }
+    
+    SavedTimelineStateConfig {
+        timeline_sequences,
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting Stunts Native...");
+
+    // Initialize authentication state
+    let mut auth_state = AuthState {
+        token: None,
+        is_authenticated: false,
+        subscription: None,
+    };
+    
+    let mut local_projects: Vec<ProjectData> = Vec::new();
+    let mut selected_project: Option<ProjectData> = None;
+    
+    // Check for stored authentication token
+    if let Some(stored_token) = get_stored_auth_token() {
+        auth_state.token = Some(stored_token.clone());
+        
+        // Try to fetch subscription details to validate token
+        match helpers::utilities::fetch_subscription_details(&stored_token.token).await {
+            Ok(subscription) => {
+                auth_state.is_authenticated = true;
+                auth_state.subscription = Some(subscription);
+                
+                // Load local projects since user is authenticated
+                match load_local_projects() {
+                    Ok(projects) => {
+                        local_projects = projects;
+                        println!("Successfully loaded {} local projects", local_projects.len());
+                    }
+                    Err(e) => {
+                        println!("Failed to load local projects: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                println!("Failed to validate stored token: {}", e);
+                // Clear invalid token
+                let _ = clear_stored_auth_token();
+                auth_state.token = None;
+            }
+        }
+    }
 
     // let saved_state = load_project_state(uuid.clone().to_string())
     //     .expect("Couldn't get Saved State");
@@ -268,6 +426,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // let's try with the unified editor.rs
     let mut editor = Editor::new(viewport.clone(), project_id.clone().to_string());
+
+    // Set canvas visibility based on authentication state
+    editor.canvas_hidden = !auth_state.is_authenticated;
 
     editor.saved_state = Some(saved_state.clone());
     editor.project_selected = Some(project_id.clone());
@@ -327,6 +488,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Sidebar state for property editing
     let sidebar_visible = Signal::new(false);
     let sidebar_width = 300.0;
+    
+    // Authentication state signals
+    let auth_state_signal = Signal::new(auth_state.clone());
+    let local_projects_signal = Signal::new(local_projects.clone());
+    let selected_project_signal = Signal::new(selected_project.clone());
+    let show_auth_form = Signal::new(!auth_state.is_authenticated);
+    let show_project_list = Signal::new(auth_state.is_authenticated && selected_project.is_none());
+    let show_project_creation = Signal::new(false);
+    let auth_loading = Signal::new(false);
+    
+    // Auth form fields
+    let email_text = Signal::new("".to_string());
+    let password_text = Signal::new("".to_string());
+    let project_name_text = Signal::new("".to_string());
 
     let motion_text = Signal::new("Motion Direction".to_string());
     let description_text = Signal::new("".to_string());
@@ -461,6 +636,274 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_container_element()
         // ))
     );
+    
+    // Authentication Form
+    let auth_form = container()
+        .with_size(400.0, 300.0)
+        .with_background_color(Color::rgba8(50, 50, 60, 240))
+        .with_border_radius(12.0)
+        .with_padding(Padding::all(20.0))
+        .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 150))
+        .with_display_signal(show_auth_form.clone())
+        .absolute()
+        .with_position(400.0, 250.0)
+        .with_child(
+            column()
+                .with_size(360.0, 260.0)
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_child(Element::new_widget(Box::new(
+                    text("Sign In")
+                        .with_font_size(24.0)
+                        .with_color(Color::rgba8(255, 255, 255, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(12.0) // Spacer
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Email:")
+                        .with_font_size(14.0)
+                        .with_color(Color::rgba8(200, 200, 200, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    input()
+                        .with_width(320.0)
+                        .with_height(35.0)
+                        .with_placeholder("Enter your email")
+                        .on_change({
+                            let email_text = email_text.clone();
+                            move |text| {
+                                email_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Password:")
+                        .with_font_size(14.0)
+                        .with_color(Color::rgba8(200, 200, 200, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    input()
+                        .with_width(320.0)
+                        .with_height(35.0)
+                        .with_placeholder("Enter your password")
+                        .on_change({
+                            let password_text = password_text.clone();
+                            move |text| {
+                                password_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(12.0) // Spacer
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    button("Sign In")
+                        .with_font_size(14.0)
+                        .with_width(120.0)
+                        .with_height(40.0)
+                        .with_backgrounds(
+                            Background::Gradient(button_normal.clone()),
+                            Background::Gradient(button_hover.clone()),
+                            Background::Gradient(button_pressed.clone())
+                        )
+                        .on_click({
+                            let email = email_text.clone();
+                            let password = password_text.clone();
+                            let tx = command_tx.clone();
+                            move || {
+                                tx.send(Command::SubmitSignIn {
+                                    email: email.get(),
+                                    password: password.get(),
+                                });
+                            }
+                        })
+                )))
+                .into_container_element()
+        );
+    
+    // Project Selection Form
+    let project_selection_form = container()
+        .with_size(500.0, 500.0)
+        .with_background_color(Color::rgba8(50, 50, 60, 240))
+        .with_border_radius(12.0)
+        .with_padding(Padding::all(20.0))
+        .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 150))
+        .with_display_signal(show_project_list.clone())
+        .absolute()
+        .with_position(350.0, 150.0)
+        .with_child(
+            column()
+                .with_size(460.0, 460.0)
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_child(Element::new_widget(Box::new(
+                    text("Select Project")
+                        .with_font_size(24.0)
+                        .with_color(Color::rgba8(255, 255, 255, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(12.0) // Spacer
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Your Projects:")
+                        .with_font_size(16.0)
+                        .with_color(Color::rgba8(200, 200, 200, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(8.0) // Spacer
+                )))
+                // TODO: Add dynamic project list here
+                .with_child(Element::new_widget(Box::new(
+                    text("(Project list will be dynamically populated)")
+                        .with_font_size(12.0)
+                        .with_color(Color::rgba8(150, 150, 150, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(12.0) // Spacer
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    row()
+                        .with_size(400.0, 40.0)
+                        .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
+                        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                        .with_child(Element::new_widget(Box::new(
+                            button("Create New Project")
+                                .with_font_size(14.0)
+                                .with_width(150.0)
+                                .with_height(35.0)
+                                .with_backgrounds(
+                                    Background::Gradient(button_normal.clone()),
+                                    Background::Gradient(button_hover.clone()),
+                                    Background::Gradient(button_pressed.clone())
+                                )
+                                .on_click({
+                                    let show_project_creation = show_project_creation.clone();
+                                    let show_project_list = show_project_list.clone();
+                                    move || {
+                                        show_project_list.set(false);
+                                        show_project_creation.set(true);
+                                    }
+                                })
+                        )))
+                        .with_child(Element::new_widget(Box::new(
+                            button("Sign Out")
+                                .with_font_size(12.0)
+                                .with_width(80.0)
+                                .with_height(30.0)
+                                .with_backgrounds(
+                                    Background::Gradient(button_normal.clone()),
+                                    Background::Gradient(button_hover.clone()),
+                                    Background::Gradient(button_pressed.clone())
+                                )
+                                .on_click({
+                                    let tx = command_tx.clone();
+                                    move || {
+                                        tx.send(Command::SignOut);
+                                    }
+                                })
+                        )))
+                )))
+                .into_container_element()
+        );
+    
+    // Project Creation Form
+    let project_creation_form = container()
+        .with_size(400.0, 250.0)
+        .with_background_color(Color::rgba8(50, 50, 60, 240))
+        .with_border_radius(12.0)
+        .with_padding(Padding::all(20.0))
+        .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 150))
+        .with_display_signal(show_project_creation.clone())
+        .absolute()
+        .with_position(400.0, 275.0)
+        .with_child(
+            column()
+                .with_size(360.0, 210.0)
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_child(Element::new_widget(Box::new(
+                    text("Create Project")
+                        .with_font_size(24.0)
+                        .with_color(Color::rgba8(255, 255, 255, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(12.0) // Spacer
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Project Name:")
+                        .with_font_size(14.0)
+                        .with_color(Color::rgba8(200, 200, 200, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    input()
+                        .with_width(320.0)
+                        .with_height(35.0)
+                        .with_placeholder("Enter project name")
+                        .on_change({
+                            let project_name_text = project_name_text.clone();
+                            move |text| {
+                                project_name_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("")
+                        .with_font_size(8.0) // Spacer
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    row()
+                        .with_size(320.0, 40.0)
+                        .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
+                        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                        .with_child(Element::new_widget(Box::new(
+                            button("Cancel")
+                                .with_font_size(14.0)
+                                .with_width(100.0)
+                                .with_height(35.0)
+                                .with_backgrounds(
+                                    Background::Gradient(button_normal.clone()),
+                                    Background::Gradient(button_hover.clone()),
+                                    Background::Gradient(button_pressed.clone())
+                                )
+                                .on_click({
+                                    let show_project_creation = show_project_creation.clone();
+                                    let show_project_list = show_project_list.clone();
+                                    move || {
+                                        show_project_creation.set(false);
+                                        show_project_list.set(true);
+                                    }
+                                })
+                        )))
+                        .with_child(Element::new_widget(Box::new(
+                            button("Create")
+                                .with_font_size(14.0)
+                                .with_width(100.0)
+                                .with_height(35.0)
+                                .with_backgrounds(
+                                    Background::Gradient(button_normal.clone()),
+                                    Background::Gradient(button_hover.clone()),
+                                    Background::Gradient(button_pressed.clone())
+                                )
+                                .on_click({
+                                    let project_name = project_name_text.clone();
+                                    let tx = command_tx.clone();
+                                    move || {
+                                        tx.send(Command::CreateProject {
+                                            name: project_name.get(),
+                                        });
+                                    }
+                                })
+                        )))
+                )))
+                .into_container_element()
+        );
     
     let button_square = button("Add Square")
         .with_font_size(10.0)
@@ -866,14 +1309,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(property_sidebar.into_container_element())
         .with_child(main_column.into_container_element());
     
-    let container = container()
+    let main_container = container()
         .with_size(1200.0, 800.0) 
         .with_radial_gradient(container_gradient)
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
         .with_child(main_content.into_container_element());
     
-    let root = container.into_container_element();
+    let root = main_container.into_container_element();
 
     println!("UI Tree Built! Launching...");
         
@@ -1096,7 +1539,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::AddSquarePolygon => {
                                         println!("Processing add square polygon command from channel");
-                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let random_coords = get_random_coords(window_size);
                                         let new_id = Uuid::new_v4();
 
                                         let polygon_config = PolygonConfig {
@@ -1189,7 +1632,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::AddText => {
                                         println!("Processing add text command from channel");
-                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let random_coords = get_random_coords(window_size);
                                         let new_id = Uuid::new_v4();
 
                                         let text_config = TextRendererConfig {
@@ -1262,7 +1705,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::AddImage { file_path } => {
                                         println!("Processing add image command from channel with file: {}", file_path);
-                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let random_coords = get_random_coords(window_size);
                                         let new_id = Uuid::new_v4();
                                         
                                         // Extract filename for a better name
@@ -1333,7 +1776,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::AddVideo { file_path } => {
                                         println!("Processing add video command from channel with file: {}", file_path);
-                                        let random_coords = helpers::utilities::get_random_coords(window_size);
+                                        let random_coords = get_random_coords(window_size);
                                         let new_id = Uuid::new_v4();
                                         
                                         let path = std::path::Path::new(&file_path);
@@ -1823,6 +2266,221 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 }
                                             });
                                         });
+                                    }
+                                    // Authentication commands
+                                    Command::SubmitSignIn { email, password } => {
+                                        println!("Processing sign in command");
+                                        auth_loading.set(true);
+                                        
+                                        let auth_state_signal = auth_state_signal.clone();
+                                        let local_projects_signal = local_projects_signal.clone();
+                                        let show_auth_form = show_auth_form.clone();
+                                        let show_project_list = show_project_list.clone();
+                                        let auth_loading = auth_loading.clone();
+                                        let editor_for_auth = editor_for_render.clone();
+                                        
+                                        tokio::spawn(async move {
+                                            match authenticate_user(&email, &password).await {
+                                                Ok(auth_response) => {
+                                                    // Create AuthToken with expiry
+                                                    let auth_token = AuthToken {
+                                                        token: auth_response.jwt_data.token.clone(),
+                                                        expiry: Some(chrono::Utc::now() + chrono::Duration::seconds(auth_response.jwt_data.expiry)),
+                                                    };
+                                                    
+                                                    // Store token securely in keyring
+                                                    if let Err(e) = store_auth_token(&auth_token) {
+                                                        println!("Failed to store auth token: {}", e);
+                                                    }
+                                                    
+                                                    // Fetch subscription details
+                                                    match helpers::utilities::fetch_subscription_details(&auth_response.jwt_data.token).await {
+                                                        Ok(subscription) => {
+                                                            let new_auth_state = AuthState {
+                                                                token: Some(auth_token),
+                                                                is_authenticated: true,
+                                                                subscription: Some(subscription),
+                                                            };
+                                                            
+                                                            // Load local projects
+                                                            match load_local_projects() {
+                                                                Ok(projects) => {
+                                                                    auth_state_signal.set(new_auth_state);
+                                                                    local_projects_signal.set(projects);
+                                                                    auth_loading.set(false);
+                                                                    show_auth_form.set(false);
+                                                                    show_project_list.set(true);
+                                                                    
+                                                                    println!("Authentication successful, loaded local projects");
+                                                                }
+                                                                Err(e) => {
+                                                                    println!("Failed to load local projects: {}", e);
+                                                                    auth_loading.set(false);
+                                                                }
+                                                            }
+                                                        }
+                                                        Err(e) => {
+                                                            println!("Failed to fetch subscription details: {}", e);
+                                                            auth_loading.set(false);
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    println!("Authentication failed: {}", e);
+                                                    auth_loading.set(false);
+                                                }
+                                            }
+                                        });
+                                    }
+                                    Command::SignOut => {
+                                        println!("Processing sign out command");
+                                        
+                                        // Clear stored token
+                                        let _ = clear_stored_auth_token();
+                                        
+                                        // Reset authentication state
+                                        let new_auth_state = AuthState {
+                                            token: None,
+                                            is_authenticated: false,
+                                            subscription: None,
+                                        };
+                                        auth_state_signal.set(new_auth_state);
+                                        local_projects_signal.set(Vec::new());
+                                        selected_project_signal.set(None);
+                                        
+                                        // Update UI visibility
+                                        show_project_list.set(false);
+                                        show_project_creation.set(false);
+                                        show_auth_form.set(true);
+                                        
+                                        // Hide canvas
+                                        editor.canvas_hidden = true;
+                                        
+                                        println!("User signed out successfully");
+                                    }
+                                    Command::LoadProjects => {
+                                        println!("Processing load projects command");
+                                        
+                                        match load_local_projects() {
+                                            Ok(projects) => {
+                                                local_projects_signal.set(projects);
+                                                println!("Local projects reloaded successfully");
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to reload local projects: {}", e);
+                                            }
+                                        }
+                                    }
+                                    Command::SelectProject { project_id } => {
+                                        println!("Processing select project command: {}", project_id);
+                                        
+                                        let current_projects = local_projects_signal.get();
+                                        if let Some(project) = current_projects.iter().find(|p| p.project_id == project_id) {
+                                            selected_project_signal.set(Some(project.clone()));
+                                            
+                                            // Load the project state
+                                            match stunts_engine::saved_state::load_project_state(project_id.clone()) {
+                                                Ok(saved_state) => {
+                                                    editor.saved_state = Some(saved_state.clone());
+                                                    editor.project_selected = Some(uuid::Uuid::parse_str(&project_id).unwrap());
+                                                    editor.current_view = "scene".to_string();
+                                                    
+                                                    // Set the current sequence data
+                                                    if let Some(sequence) = saved_state.sequences.first() {
+                                                        editor.current_sequence_data = Some(sequence.clone());
+                                                        editor.update_motion_paths(sequence);
+                                                    }
+                                                    
+                                                    // Hide project selection UI and show main canvas
+                                                    show_project_list.set(false);
+                                                    show_project_creation.set(false);
+                                                    editor.canvas_hidden = false;
+                                                    
+                                                    println!("Project selected and loaded: {}", project.project_name);
+                                                }
+                                                Err(e) => {
+                                                    println!("Failed to load project state: {}", e);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Command::CreateProject { name } => {
+                                        println!("Processing create project command: {}", name);
+                                        
+                                        // Check if user can create projects based on subscription
+                                        let auth_state = auth_state_signal.get();
+                                        if auth_state.can_create_projects() {
+                                            match create_local_project(&name) {
+                                                Ok(new_project) => {
+                                                    // Update local projects list
+                                                    let mut current_projects = local_projects_signal.get();
+                                                    current_projects.push(new_project.clone());
+                                                    local_projects_signal.set(current_projects);
+                                                    
+                                                    // Set as selected project
+                                                    selected_project_signal.set(Some(new_project.clone()));
+                                                    
+                                                    // Load the newly created project state
+                                                    match stunts_engine::saved_state::load_project_state(new_project.project_id.clone()) {
+                                                        Ok(mut saved_state) => {
+                                                            // Create first sequence automatically
+                                                            let sequence_id = Uuid::new_v4();
+                                                            let first_sequence = Sequence {
+                                                                id: sequence_id.to_string(),
+                                                                name: "Sequence 1".to_string(),
+                                                                background_fill: Some(BackgroundFill::Color([
+                                                                    wgpu_to_human(0.8) as i32,
+                                                                    wgpu_to_human(0.8) as i32,
+                                                                    wgpu_to_human(0.8) as i32,
+                                                                    255,
+                                                                ])),
+                                                                duration_ms: 20000,
+                                                                active_polygons: Vec::new(),
+                                                                polygon_motion_paths: Vec::new(),
+                                                                active_text_items: Vec::new(),
+                                                                active_image_items: Vec::new(),
+                                                                active_video_items: Vec::new(),
+                                                            };
+                                                            
+                                                            saved_state.sequences = vec![first_sequence];
+                                                            saved_state.timeline_state = arrange_sequences_in_series(&mut saved_state.sequences);
+                                                            
+                                                            // Save the updated state
+                                                            let _ = stunts_engine::saved_state::save_saved_state_raw(saved_state.clone());
+                                                            
+                                                            // Update editor with new project and sequence
+                                                            editor.saved_state = Some(saved_state.clone());
+                                                            editor.project_selected = Some(uuid::Uuid::parse_str(&new_project.project_id).unwrap());
+                                                            editor.current_view = "scene".to_string();
+                                                            
+                                                            // Set the current sequence data
+                                                            if let Some(sequence) = saved_state.sequences.first() {
+                                                                editor.current_sequence_data = Some(sequence.clone());
+                                                                editor.update_motion_paths(sequence);
+                                                            }
+                                                            
+                                                            // Hide creation form and show main canvas
+                                                            show_project_creation.set(false);
+                                                            show_project_list.set(false);
+                                                            project_name_text.set("".to_string());
+                                                            editor.canvas_hidden = false;
+                                                            
+                                                            println!("Project created successfully: {}", new_project.project_name);
+                                                        }
+                                                        Err(e) => {
+                                                            println!("Failed to load newly created project state: {}", e);
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    println!("Failed to create local project: {}", e);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Command::CreateSequence { name, project_id } => {
+                                        println!("Processing create sequence command: {} for project {}", name, project_id);
+                                        // TODO: Implement sequence creation API call
                                     }
                                     
                                 }
