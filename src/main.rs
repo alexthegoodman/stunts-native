@@ -1335,10 +1335,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .with_child(Element::new_widget(Box::new(button3)))
     //     .with_child(Element::new_widget(Box::new(button4)));
 
-    let toolkit = row()
+    let toolkit = container()
         .with_size(1200.0, 50.0)
-        .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
-        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+        .absolute() // Position absolutely - won't affect layout flow
+        .with_position(20.0, 20.0) // Position at specific coordinates
         .with_child(left_tools.into_container_element());
         // .with_child(right_tools.into_container_element());
 
@@ -1347,6 +1347,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_main_axis_alignment(MainAxisAlignment::Center)
         .with_cross_axis_alignment(CrossAxisAlignment::Center)
         .with_child(Element::new_widget(Box::new(button5)));
+    
+    let video_ctrls_container = container()
+        .absolute() // Position absolutely - won't affect layout flow
+        .with_position(20.0, 680.0) // Position at specific coordinates
+        .with_size(1200.0, 50.0)
+        .with_child(video_ctrls.into_container_element());
 
     // Create text properties widget using the new manual implementation
     let text_properties_widget = text_properties::create_text_properties_panel(
@@ -1379,9 +1385,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .with_padding(Padding::all(20.0))
         // .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
         .with_child(toolkit.into_container_element())
-        .with_child(motion_form.into_container_element())
-        .with_child(primary_canvas::create_render_placeholder()?)
-        .with_child(video_ctrls.into_container_element());
+        // .with_child(primary_canvas::create_render_placeholder()?)
+        .with_child(video_ctrls_container.into_container_element());
 
     // Create main content area with sidebar
     let main_content = row()
@@ -1407,6 +1412,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_child(project_creation_form.into_container_element())
         .with_child(project_selection_form.into_container_element())
         .with_child(auth_form.into_container_element()) 
+        .with_child(motion_form.into_container_element())
         .with_child(editor_container.into_container_element());
 
     let main_container = container()
