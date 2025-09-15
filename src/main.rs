@@ -700,10 +700,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 150))
         .with_display_signal(show_auth_form.clone())
         .absolute()
-        .with_position(400.0, 250.0)
+        .with_position(50.0, 50.0)
         .with_child(
             column()
-                .with_size(360.0, 260.0)
+                .with_size(400.0, 300.0)
                 .with_main_axis_alignment(MainAxisAlignment::Start)
                 .with_cross_axis_alignment(CrossAxisAlignment::Center)
                 .with_child(Element::new_widget(Box::new(
@@ -780,19 +780,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Project Selection Form
     let project_selection_form = container()
-        .with_size(500.0, 500.0)
+        .with_size(800.0, 700.0)
         .with_background_color(Color::rgba8(50, 50, 60, 240))
         .with_border_radius(12.0)
         .with_padding(Padding::all(20.0))
         .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 150))
         .with_display_signal(show_project_list.clone())
         .absolute()
-        .with_position(350.0, 150.0)
+        .with_position(50.0, 50.0)
         .with_child(
             column()
-                .with_size(460.0, 460.0)
+                .with_size(800.0, 600.0)
                 .with_main_axis_alignment(MainAxisAlignment::Start)
-                .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                .with_cross_axis_alignment(CrossAxisAlignment::Start)
                 .with_child(Element::new_widget(Box::new(
                     text("Select Project")
                         .with_font_size(24.0)
@@ -811,9 +811,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     text("")
                         .with_font_size(8.0) // Spacer
                 )))
-                // TODO: Add dynamic project list here
                 .with_child(
                     column()
+                        .with_size(400.0, 400.0)
                         .with_reactive_children(local_projects_signal.clone(), {
                             let command_tx = command_tx.clone();
 
@@ -849,13 +849,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     text("")
                         .with_font_size(12.0) // Spacer
                 )))
-                .with_child(Element::new_widget(Box::new(
-                    row()
+                .with_child(row()
                         .with_size(400.0, 40.0)
                         .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
                         .with_cross_axis_alignment(CrossAxisAlignment::Center)
                         .with_child(Element::new_widget(Box::new(
-                            button("Create New Project")
+                            button("Create Project")
                                 .with_font_size(14.0)
                                 .with_width(150.0)
                                 .with_height(35.0)
@@ -889,24 +888,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         tx.send(Command::SignOut);
                                     }
                                 })
-                        )))
-                )))
+                        ))).into_container_element()
+                )
                 .into_container_element()
         );
     
     // Project Creation Form
     let project_creation_form = container()
-        .with_size(400.0, 250.0)
+        .with_size(800.0, 600.0)
         .with_background_color(Color::rgba8(50, 50, 60, 240))
         .with_border_radius(12.0)
         .with_padding(Padding::all(20.0))
         .with_shadow(4.0, 4.0, 8.0, Color::rgba8(0, 0, 0, 150))
         .with_display_signal(show_project_creation.clone())
         .absolute()
-        .with_position(400.0, 275.0)
+        .with_position(50.0, 50.0)
         .with_child(
             column()
-                .with_size(360.0, 210.0)
+                .with_size(800.0, 600.0)
                 .with_main_axis_alignment(MainAxisAlignment::Start)
                 .with_cross_axis_alignment(CrossAxisAlignment::Center)
                 .with_child(Element::new_widget(Box::new(
@@ -964,7 +963,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 })
                         )))
                         .with_child(Element::new_widget(Box::new(
-                            button("Create")
+                            button("Create Project")
                                 .with_font_size(14.0)
                                 .with_width(300.0)
                                 .with_height(35.0)
@@ -1404,10 +1403,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_radial_gradient(container_gradient)
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        .with_child(editor_container.into_container_element())
-        .with_child(auth_form.into_container_element())
+        .with_child(project_creation_form.into_container_element())
         .with_child(project_selection_form.into_container_element())
-        .with_child(project_creation_form.into_container_element());
+        .with_child(auth_form.into_container_element()) 
+        .with_child(editor_container.into_container_element());
     
     let root = main_container.into_container_element();
 
@@ -1663,6 +1662,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             layer: 2,
                                         };
 
+                                        // println!("add polyong {:?}", current_sequence_id.get().clone());
                                         
                                         editor.add_polygon(
                                             polygon_config.clone(),
