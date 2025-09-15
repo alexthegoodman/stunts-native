@@ -493,6 +493,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_state_signal = Signal::new(auth_state.clone());
     let local_projects_signal = Signal::new(local_projects.clone());
     let selected_project_signal = Signal::new(selected_project.clone());
+    let show_editor = Signal::new(auth_state.is_authenticated);
     let show_auth_form = Signal::new(!auth_state.is_authenticated);
     let show_project_list = Signal::new(auth_state.is_authenticated && selected_project.is_none());
     let show_project_creation = Signal::new(false);
@@ -1308,13 +1309,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
         .with_child(property_sidebar.into_container_element())
         .with_child(main_column.into_container_element());
+
+    let editor_container = container()
+        .with_size(1200.0, 800.0) 
+        .with_display_signal(show_editor.clone())
+        // .with_radial_gradient(container_gradient)
+        // .with_padding(Padding::all(20.0))
+        // .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
+        .with_child(main_content.into_container_element());
     
     let main_container = container()
         .with_size(1200.0, 800.0) 
         .with_radial_gradient(container_gradient)
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        .with_child(main_content.into_container_element());
+        .with_child(editor_container.into_container_element())
+        .with_child(auth_form.into_container_element())
+        .with_child(project_selection_form.into_container_element())
+        .with_child(project_creation_form.into_container_element());
     
     let root = main_container.into_container_element();
 
@@ -2352,6 +2364,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         show_project_list.set(false);
                                         show_project_creation.set(false);
                                         show_auth_form.set(true);
+                                        show_editor.set(false);
                                         
                                         // Hide canvas
                                         editor.canvas_hidden = true;
@@ -2394,6 +2407,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     // Hide project selection UI and show main canvas
                                                     show_project_list.set(false);
                                                     show_project_creation.set(false);
+                                                    show_editor.set(true);
                                                     editor.canvas_hidden = false;
                                                     
                                                     println!("Project selected and loaded: {}", project.project_name);
@@ -2462,6 +2476,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                             // Hide creation form and show main canvas
                                                             show_project_creation.set(false);
                                                             show_project_list.set(false);
+                                                            show_editor.set(true);
                                                             project_name_text.set("".to_string());
                                                             editor.canvas_hidden = false;
                                                             
