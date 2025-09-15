@@ -1399,15 +1399,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
         .with_child(main_content.into_container_element());
     
+    let main_column = column()
+        .with_size(1200.0, 800.0) 
+        // .with_radial_gradient(container_gradient)
+        // .with_padding(Padding::all(20.0))
+        // .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
+        .with_child(project_creation_form.into_container_element())
+        .with_child(project_selection_form.into_container_element())
+        .with_child(auth_form.into_container_element()) 
+        .with_child(editor_container.into_container_element());
+
     let main_container = container()
         .with_size(1200.0, 800.0) 
         .with_radial_gradient(container_gradient)
         .with_padding(Padding::all(20.0))
         .with_shadow(8.0, 8.0, 15.0, Color::rgba8(0, 0, 0, 80))
-        .with_child(project_creation_form.into_container_element())
-        .with_child(project_selection_form.into_container_element())
-        .with_child(auth_form.into_container_element()) 
-        .with_child(editor_container.into_container_element());
+        .with_child(main_column.into_container_element());
     
     let root = main_container.into_container_element();
 
