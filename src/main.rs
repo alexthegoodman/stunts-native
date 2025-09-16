@@ -891,6 +891,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )))
                 .into_container_element()
         );
+
+        let form_header = column()
+                .with_size(800.0, 120.0)
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_cross_axis_alignment(CrossAxisAlignment::Start)
+                .with_child(Element::new_widget(Box::new(
+                    text("Select Project")
+                        .with_font_size(24.0)
+                        .with_color(Color::rgba8(255, 255, 255, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Your Projects:")
+                        .with_font_size(16.0)
+                        .with_color(Color::rgba8(200, 200, 200, 255))
+                )));
     
     // Project Selection Form
     let project_selection_form = container()
@@ -904,74 +919,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_position(50.0, 50.0)
         .with_child(
             column()
-                .with_size(800.0, 400.0)
+                .with_size(800.0, 300.0)
                 .with_main_axis_alignment(MainAxisAlignment::Start)
                 .with_cross_axis_alignment(CrossAxisAlignment::Start)
-                .with_child(Element::new_widget(Box::new(
-                    text("Select Project")
-                        .with_font_size(24.0)
-                        .with_color(Color::rgba8(255, 255, 255, 255))
-                )))
-                .with_child(Element::new_widget(Box::new(
-                    text("")
-                        .with_font_size(12.0) // Spacer
-                )))
-                .with_child(Element::new_widget(Box::new(
-                    text("Your Projects:")
-                        .with_font_size(16.0)
-                        .with_color(Color::rgba8(200, 200, 200, 255))
-                )))
-                .with_child(Element::new_widget(Box::new(
-                    text("")
-                        .with_font_size(8.0) // Spacer
-                )))
-                .with_child(
-                    column()
-                        .with_size(400.0, 400.0)
-                        .with_reactive_children(local_projects_signal.clone(), {
-                            let command_tx = command_tx.clone();
-
-                            move |project_list| {
-                            let mut children = Vec::new();
-
-                            for project in project_list {
-                                children.push(Element::new_widget(Box::new(
-                                    button(&project.project_name)
-                                        .with_size(360.0, 32.0)
-                                        // .with_background_color(Color::rgba8(70, 70, 80, 255))
-                                        .with_font_size(14.0)
-                                        .on_click({                               
-                                            let tx = command_tx.clone();
-                                            let project_id = project.project_id.clone();
-                                            
-                                            move || {
-                                                // Handle project selection    
-                                                tx.send(Command::SelectProject { project_id: project_id.clone() });
-                                            }
-                                        })
-                                )));
-
-                                children.push(Element::new_widget(Box::new(
-                                    text("").with_font_size(4.0) // spacer
-                                )));
-                            }
-
-                            children
-                        }}).into_container_element()
-                )
-                .with_child(Element::new_widget(Box::new(
-                    text("")
-                        .with_font_size(12.0) // Spacer
-                )))
+                .with_child(form_header.into_container_element())
                 .with_child(row()
-                        .with_size(400.0, 40.0)
+                        .with_size(600.0, 40.0)
                         .with_main_axis_alignment(MainAxisAlignment::SpaceBetween)
                         .with_cross_axis_alignment(CrossAxisAlignment::Center)
                         .with_child(Element::new_widget(Box::new(
                             button("Create Project")
                                 .with_font_size(14.0)
                                 .with_width(150.0)
-                                .with_height(35.0)
+                                .with_height(30.0)
                                 .with_backgrounds(
                                     Background::Gradient(button_normal.clone()),
                                     Background::Gradient(button_hover.clone()),
@@ -1003,6 +963,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                 })
                         ))).into_container_element()
+                )
+                .with_child(
+                    column()
+                        .with_size(800.0, 300.0)
+                        .with_main_axis_alignment(MainAxisAlignment::Start)
+                        .with_cross_axis_alignment(CrossAxisAlignment::Start)
+                        .with_reactive_children(local_projects_signal.clone(), {
+                            let command_tx = command_tx.clone();
+
+                            move |project_list| {
+                            let mut children = Vec::new();
+
+                            for project in project_list {
+                                children.push(Element::new_widget(Box::new(
+                                    button(&project.project_name)
+                                        .with_size(260.0, 26.0)
+                                        // .with_background_color(Color::rgba8(70, 70, 80, 255))
+                                        .with_font_size(14.0)
+                                        .on_click({                               
+                                            let tx = command_tx.clone();
+                                            let project_id = project.project_id.clone();
+                                            
+                                            move || {
+                                                // Handle project selection    
+                                                tx.send(Command::SelectProject { project_id: project_id.clone() });
+                                            }
+                                        })
+                                )));
+
+                                // children.push(Element::new_widget(Box::new(
+                                //     text("").with_font_size(4.0) // spacer
+                                // )));
+                            }
+
+                            children
+                        }}).into_container_element()
                 )
                 .into_container_element()
         );
@@ -1221,7 +1217,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     
     // turns on a mode in the editor so the user can draw arrows by clicking and dragging or dots by just clicking
-    let button2 = button("Add Motion")
+    let motion_button = button("Add Motion")
         .with_font_size(10.0)
         .with_width(90.0)
         .with_height(20.0)
@@ -1238,25 +1234,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
     // optional button for regenerate each object according to its arrow (maybe too much at once? could batch it)
-    let button3 = button("Regenerate All")
-        .with_font_size(10.0)
-        .with_width(90.0)
-        .with_height(20.0)
-        .with_backgrounds(
-            Background::Gradient(button_normal.clone()),
-            Background::Gradient(button_hover.clone()),
-            Background::Gradient(button_pressed.clone())
-        )
-        .on_click({
-            let tx = command_tx.clone();
-            move || {
-                tx.send(Command::AddMotion);
-            }
-        });
+    // let button3 = button("Regenerate All")
+    //     .with_font_size(10.0)
+    //     .with_width(90.0)
+    //     .with_height(20.0)
+    //     .with_backgrounds(
+    //         Background::Gradient(button_normal.clone()),
+    //         Background::Gradient(button_hover.clone()),
+    //         Background::Gradient(button_pressed.clone())
+    //     )
+    //     .on_click({
+    //         let tx = command_tx.clone();
+    //         move || {
+    //             tx.send(Command::AddMotion);
+    //         }
+    //     });
 
     // export the video - create reactive button text
     let export_button_text = Signal::new("Export".to_string());
-    let button4 = button_signal(export_button_text.clone())
+    let export_button = button_signal(export_button_text.clone())
         .with_font_size(10.0)
         .with_width(90.0)
         .with_height(20.0)
@@ -1444,26 +1440,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_container_element()
             );    
 
-    let left_tools = row()
+    let top_tools = row()
         .with_size(1200.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
         .with_cross_axis_alignment(CrossAxisAlignment::Start)
-        .with_child(Element::new_widget(Box::new(button2)))
-        .with_child(Element::new_widget(Box::new(button_square)))
-        .with_child(Element::new_widget(Box::new(button_text)))
-        .with_child(Element::new_widget(Box::new(button_image)))
-        .with_child(Element::new_widget(Box::new(button_video)))
-        .with_child(Element::new_widget(Box::new(button_capture)))
-        .with_child(capture_sources_dropdown.into_container_element())
-        .with_child(Element::new_widget(Box::new(button3)))
-        .with_child(Element::new_widget(Box::new(button4)))
+        // .with_child(Element::new_widget(Box::new(motion_button)))
+        // .with_child(Element::new_widget(Box::new(button_square)))
+        // .with_child(Element::new_widget(Box::new(button_text)))
+        // .with_child(Element::new_widget(Box::new(button_image)))
+        // .with_child(Element::new_widget(Box::new(button_video)))
+        // .with_child(Element::new_widget(Box::new(button_capture)))
+        // .with_child(capture_sources_dropdown.into_container_element())
+        // .with_child(Element::new_widget(Box::new(button3)))
         .with_child(Element::new_widget(Box::new(button_properties)))
         .with_child(Element::new_widget(Box::new(button_themes)))
+        .with_child(Element::new_widget(Box::new(export_button)))
         .with_child(Element::new_widget(Box::new(
             text_signal(export_status.clone())
                 .with_font_size(10.0)
                 .with_color(Color::rgba8(200, 200, 200, 255))
         )));
+
+    let bottom_tools = row()
+        .with_size(1200.0, 50.0)
+        .with_main_axis_alignment(MainAxisAlignment::Start)
+        .with_cross_axis_alignment(CrossAxisAlignment::Start)
+        .with_child(Element::new_widget(Box::new(motion_button)))
+        .with_child(Element::new_widget(Box::new(button_square)))
+        .with_child(Element::new_widget(Box::new(button_text)))
+        .with_child(Element::new_widget(Box::new(button_image)))
+        .with_child(Element::new_widget(Box::new(button_video)))
+        .with_child(Element::new_widget(Box::new(button_capture)))
+        .with_child(capture_sources_dropdown.into_container_element());
+        // .with_child(Element::new_widget(Box::new(button3)))
+        // .with_child(Element::new_widget(Box::new(export_button)))
+        // .with_child(Element::new_widget(Box::new(button_properties)))
+        // .with_child(Element::new_widget(Box::new(button_themes)))
+        // .with_child(Element::new_widget(Box::new(
+        //     text_signal(export_status.clone())
+        //         .with_font_size(10.0)
+        //         .with_color(Color::rgba8(200, 200, 200, 255))
+        // ))
+    // );
 
     // let right_tools = row()
     //     .with_size(400.0, 50.0)
@@ -1472,11 +1490,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .with_child(Element::new_widget(Box::new(button3)))
     //     .with_child(Element::new_widget(Box::new(button4)));
 
+    let toolkit_inner = column()
+            .with_size(1200.0, 50.0)
+            .with_child(top_tools.into_container_element())
+            .with_child(bottom_tools.into_container_element());
+
     let toolkit = container()
         .with_size(1200.0, 50.0)
         .absolute() // Position absolutely - won't affect layout flow
         .with_position(20.0, 20.0) // Position at specific coordinates
-        .with_child(left_tools.into_container_element());
+        .with_child(toolkit_inner.into_container_element());
         // .with_child(right_tools.into_container_element());
 
     let video_ctrls = row()
