@@ -56,11 +56,11 @@ impl Edit for ObjectEdit {
             ObjectProperty::Width(w) => {
                 match self.object_type {
                     ObjectType::Polygon => {
-                        editor.update_polygon(self.object_id, "width", InputValue::Number(*w));
+                        editor.update_polygon(self.object_id, "width", InputValue::Number(*w), true);
                         // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::TextItem => {
-                        editor.update_text(self.object_id, "width", InputValue::Number(*w));
+                        editor.update_text(self.object_id, "width", InputValue::Number(*w), true);
 
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
@@ -118,7 +118,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::Height(h) => {
                 match self.object_type {
                     ObjectType::Polygon => {
-                        editor.update_polygon(self.object_id, "height", InputValue::Number(*h));
+                        editor.update_polygon(self.object_id, "height", InputValue::Number(*h), true);
 
                         // let mut height = h.to_string();
                         // // self.signal.expect("signal error").set(height);
@@ -136,7 +136,7 @@ impl Edit for ObjectEdit {
                         // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::TextItem => {
-                        editor.update_text(self.object_id, "height", InputValue::Number(*h));
+                        editor.update_text(self.object_id, "height", InputValue::Number(*h), true);
 
                         // let mut height = h.to_string();
                         // // self.signal.expect("signal error").set(height);
@@ -229,7 +229,7 @@ impl Edit for ObjectEdit {
                         // save_saved_state_raw(saved_state.clone());
                     }
                 } else {
-                    editor.update_polygon(self.object_id, "red", InputValue::Number(*h));
+                    editor.update_polygon(self.object_id, "red", InputValue::Number(*h), true);
 
                     // let mut red = h.to_string();
                     // // self.signal.expect("signal error").set(red);
@@ -285,7 +285,7 @@ impl Edit for ObjectEdit {
                         // save_saved_state_raw(saved_state.clone());
                     }
                 } else {
-                    editor.update_polygon(self.object_id, "green", InputValue::Number(*h));
+                    editor.update_polygon(self.object_id, "green", InputValue::Number(*h), true);
 
                     // let mut green = h.to_string();
                     // // self.signal.expect("signal error").set(green);
@@ -341,7 +341,7 @@ impl Edit for ObjectEdit {
                         // save_saved_state_raw(saved_state.clone());
                     }
                 } else {
-                    editor.update_polygon(self.object_id, "blue", InputValue::Number(*h));
+                    editor.update_polygon(self.object_id, "blue", InputValue::Number(*h), true);
 
                     // let mut blue = h.to_string();
                     // // self.signal.expect("signal error").set(blue);
@@ -364,7 +364,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let red_human = wgpu_to_human(*h);
 
-                editor.update_text(self.object_id, "red_fill", InputValue::Number(*h));
+                editor.update_text(self.object_id, "red_fill", InputValue::Number(*h), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -388,7 +388,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let green_human = wgpu_to_human(*h);
 
-                editor.update_text(self.object_id, "green_fill", InputValue::Number(*h));
+                editor.update_text(self.object_id, "green_fill", InputValue::Number(*h), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -412,7 +412,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let blue_human = wgpu_to_human(*h);
 
-                editor.update_text(self.object_id, "blue_fill", InputValue::Number(*h));
+                editor.update_text(self.object_id, "blue_fill", InputValue::Number(*h), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -434,7 +434,7 @@ impl Edit for ObjectEdit {
             }
 
             ObjectProperty::BorderRadius(h) => {
-                editor.update_polygon(self.object_id, "border_radius", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "border_radius", InputValue::Number(*h), true);
 
                 let mut border_radius = h.to_string();
                 // self.signal.expect("signal error").set(border_radius);
@@ -452,7 +452,7 @@ impl Edit for ObjectEdit {
                 // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeThickness(h) => {
-                editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h), true);
 
                 let mut stroke_thickness = h.to_string();
                 // self.signal.expect("signal error").set(stroke_thickness);
@@ -470,7 +470,7 @@ impl Edit for ObjectEdit {
                 // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeRed(h) => {
-                editor.update_polygon(self.object_id, "stroke_red", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "stroke_red", InputValue::Number(*h), true);
 
                 let mut stroke_red = h.to_string();
                 // self.signal.expect("signal error").set(stroke_red);
@@ -488,7 +488,7 @@ impl Edit for ObjectEdit {
                 // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeGreen(h) => {
-                editor.update_polygon(self.object_id, "stroke_green", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "stroke_green", InputValue::Number(*h), true);
 
                 let mut stroke_green = h.to_string();
                 // self.signal.expect("signal error").set(stroke_green);
@@ -506,7 +506,7 @@ impl Edit for ObjectEdit {
                 // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeBlue(h) => {
-                editor.update_polygon(self.object_id, "stroke_blue", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "stroke_blue", InputValue::Number(*h), true);
 
                 let mut stroke_blue = h.to_string();
                 // self.signal.expect("signal error").set(stroke_blue);
@@ -528,6 +528,8 @@ impl Edit for ObjectEdit {
                     self.object_id,
                     ObjectProperty::FontFamily(new_font_family.clone())
                 );
+
+                // TODO: save to file editor.saved_state
             }
             ObjectProperty::FontSize(new_font_size) => {
                 editor.update_text_property(
@@ -560,7 +562,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::Width(w) => {
                 match self.object_type {
                     ObjectType::Polygon => {
-                        editor.update_polygon(self.object_id, "width", InputValue::Number(*w));
+                        editor.update_polygon(self.object_id, "width", InputValue::Number(*w), true);
 
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
@@ -578,7 +580,7 @@ impl Edit for ObjectEdit {
                         // save_saved_state_raw(editor.saved_state.clone().expect("Couldn't clone saved state"));
                     }
                     ObjectType::TextItem => {
-                        editor.update_text(self.object_id, "width", InputValue::Number(*w));
+                        editor.update_text(self.object_id, "width", InputValue::Number(*w), true);
 
                         let mut width = w.to_string();
                         // self.signal.expect("signal error").set(width);
@@ -636,7 +638,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::Height(h) => {
                 match self.object_type {
                     ObjectType::Polygon => {
-                        editor.update_polygon(self.object_id, "height", InputValue::Number(*h));
+                        editor.update_polygon(self.object_id, "height", InputValue::Number(*h), true);
 
                         // let mut height = h.to_string();
                         // // self.signal.expect("signal error").set(height);
@@ -654,7 +656,7 @@ impl Edit for ObjectEdit {
                         // save_saved_state_raw(saved_state.clone());
                     }
                     ObjectType::TextItem => {
-                        editor.update_text(self.object_id, "height", InputValue::Number(*h));
+                        editor.update_text(self.object_id, "height", InputValue::Number(*h), true);
 
                         // let mut height = h.to_string();
                         // // self.signal.expect("signal error").set(height);
@@ -713,7 +715,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let red_human = wgpu_to_human(*h);
 
-                editor.update_polygon(self.object_id, "red", InputValue::Number(red_human));
+                editor.update_polygon(self.object_id, "red", InputValue::Number(red_human), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -735,7 +737,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let green_human = wgpu_to_human(*h);
 
-                editor.update_polygon(self.object_id, "green", InputValue::Number(green_human));
+                editor.update_polygon(self.object_id, "green", InputValue::Number(green_human), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -757,7 +759,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let blue_human = wgpu_to_human(*h);
 
-                editor.update_polygon(self.object_id, "blue", InputValue::Number(blue_human));
+                editor.update_polygon(self.object_id, "blue", InputValue::Number(blue_human), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -780,7 +782,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 // let red_human = wgpu_to_human(*h);
 
-                editor.update_text(self.object_id, "red_fill", InputValue::Number(*h));
+                editor.update_text(self.object_id, "red_fill", InputValue::Number(*h), true);
 
                 // self.signal.expect("signal error").set(h.to_string());
 
@@ -806,6 +808,7 @@ impl Edit for ObjectEdit {
                     self.object_id,
                     "green_fill",
                     InputValue::Number(green_human),
+                    true
                 );
 
                 // self.signal.expect("signal error").set(h.to_string());
@@ -828,7 +831,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_green = h.to_string();
                 let blue_human = wgpu_to_human(*h);
 
-                editor.update_text(self.object_id, "blue_fill", InputValue::Number(blue_human));
+                editor.update_text(self.object_id, "blue_fill", InputValue::Number(blue_human), true);
 
                 // self.signal.expect("signal error").set(h.to_string());
 
@@ -848,7 +851,7 @@ impl Edit for ObjectEdit {
             }
 
             ObjectProperty::BorderRadius(h) => {
-                editor.update_polygon(self.object_id, "border_radius", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "border_radius", InputValue::Number(*h), true);
 
                 let mut border_radius = h.to_string();
                 // self.signal.expect("signal error").set(border_radius);
@@ -866,7 +869,7 @@ impl Edit for ObjectEdit {
                 // save_saved_state_raw(saved_state.clone());
             }
             ObjectProperty::StrokeThickness(h) => {
-                editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h));
+                editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h), true);
 
                 let mut stroke_thickness = h.to_string();
                 // self.signal.expect("signal error").set(stroke_thickness);
@@ -887,7 +890,7 @@ impl Edit for ObjectEdit {
                 // let mut stroke_red = h.to_string();
                 let red_human = wgpu_to_human(*h);
 
-                editor.update_polygon(self.object_id, "stroke_red", InputValue::Number(red_human));
+                editor.update_polygon(self.object_id, "stroke_red", InputValue::Number(red_human), true);
 
                 // self.signal
                 //     .expect("signal error")
@@ -912,7 +915,7 @@ impl Edit for ObjectEdit {
                 editor.update_polygon(
                     self.object_id,
                     "stroke_green",
-                    InputValue::Number(green_human),
+                    InputValue::Number(green_human), true
                 );
 
                 // self.signal
@@ -938,7 +941,7 @@ impl Edit for ObjectEdit {
                 editor.update_polygon(
                     self.object_id,
                     "stroke_blue",
-                    InputValue::Number(blue_human),
+                    InputValue::Number(blue_human), true
                 );
 
                 // self.signal
@@ -963,6 +966,8 @@ impl Edit for ObjectEdit {
                     self.object_id,
                     ObjectProperty::FontFamily(new_font_family.clone())
                 );
+
+                // TODO: save to file
             }
             ObjectProperty::FontSize(new_font_size) => {
                 editor.update_text_property(

@@ -3005,10 +3005,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 editor.update_text_font_family(font_id.clone(), id);
                                                 
                                                 // Update text fill colors
-                                                editor.update_text(id, "red_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[0] as f32));
-                                                editor.update_text(id, "green_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[1] as f32));
-                                                editor.update_text(id, "blue_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[2] as f32));
+                                                editor.update_text(id, "red_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[0] as f32), false);
+                                                editor.update_text(id, "green_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[1] as f32), false);
+                                                editor.update_text(id, "blue_fill", stunts_engine::editor::InputValue::Number(text_color_wgpu[2] as f32), false);
                                             }
+                                        }
+
+                                        // loop through polygons and apply text_color (so it contrasts with background)
+                                        let ids_to_update: Vec<_> = editor
+                                            .polygons
+                                            .iter()
+                                            .filter(|poly| {
+                                                poly.current_sequence_id.to_string() == current_sequence_id.get()
+                                            })
+                                            .map(|poly| poly.id)
+                                            .collect();
+
+                                        for id in ids_to_update.clone() {
+                                            editor.update_polygon(id, "red", stunts_engine::editor::InputValue::Number(text_color_wgpu[0] as f32), false);
+                                            editor.update_polygon(id, "green", stunts_engine::editor::InputValue::Number(text_color_wgpu[1] as f32), false);
+                                            editor.update_polygon(id, "blue", stunts_engine::editor::InputValue::Number(text_color_wgpu[2] as f32), false);
                                         }
 
                                         // Update background for current sequence
