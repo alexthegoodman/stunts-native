@@ -1721,6 +1721,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Ok(mut editor_state) = state_for_render.try_lock() { 
                                 let sequence_data = editor.current_sequence_data.clone();
                                 let last_motion_arrow_object_id = editor.last_motion_arrow_object_id.to_string();
+                                let last_motion_arrow_object_type = editor.last_motion_arrow_object_type.clone();
                                
                                 if let Some(ref mut saved_state) = editor.saved_state {
                                     // Clean up data
@@ -1730,6 +1731,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     final_animation.polygon_id = last_motion_arrow_object_id;
                                     final_animation.start_time_ms = 0;
                                     final_animation.position = [0, 0];
+
+                                    if last_motion_arrow_object_type == ObjectType::VideoItem {
+                                        let zoom_prop = editor_state.save_default_zoom();
+
+                                        final_animation.properties.push(zoom_prop);
+                                    }
 
                                     println!("final_animation: {:?}", final_animation);
 
