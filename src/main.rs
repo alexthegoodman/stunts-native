@@ -2412,6 +2412,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Command::StartScreenCapture { hwnd, width, height } => {
                                         println!("Processing start screen capture command for HWND: {}", hwnd);
 
+                                        editor.st_capture
+                                            .start_mouse_tracking()
+                                            .expect(
+                                                "Couldn't start mouse tracking",
+                                            );
+
                                         match editor.st_capture.start_video_capture(hwnd, width as u32, height as u32, project_id.to_string()) {
                                             Ok(_) => {
                                                 println!("Screen capture started successfully");
@@ -2426,6 +2432,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::StopScreenCapture => {
                                         println!("Processing stop screen capture command");
+
+                                        let (mouse_positions_path) = editor.st_capture
+                                                    .stop_mouse_tracking(
+                                                        project_id.to_string(),
+                                                    )
+                                                    .expect(
+                                                        "Couldn't stop mouse tracking",
+                                                    );
 
                                         match editor.st_capture.stop_video_capture(project_id.to_string()) {
                                             Ok((video_path, mouse_data_path)) => {
