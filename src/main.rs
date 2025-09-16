@@ -74,6 +74,8 @@ enum Command {
         scale: String,
         rotation: String,
         opacity: String,
+        delay: String,
+        duration: String,
     },
     UpdateTextProperty {
         // text_id: String,
@@ -575,7 +577,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scale_text = Signal::new("".to_string());
     let opacity_text = Signal::new("".to_string());
     let rotation_text = Signal::new("".to_string());
-    
+    let duration_text = Signal::new("".to_string());
+    let delay_text = Signal::new("".to_string());
+
     let motion_form = container()
         .with_size(400.0, 450.0)
         .with_background_color(Color::rgba8(255, 200, 150, 200))
@@ -690,6 +694,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         })
                 )))
                 .with_child(Element::new_widget(Box::new(
+                    text("Duration:")
+                        .with_font_size(12.0)
+                        .with_color(Color::rgba8(80, 40, 0, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    input()
+                        .with_width(350.0)
+                        .with_height(30.0)
+                        .with_placeholder("ex. Slow, 5 seconds, 1500ms")
+                        .with_signal(duration_text.clone())
+                        .on_change({
+                            let duration_text = duration_text.clone();
+
+                            move |text| {
+                                // rotation_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    text("Delay:")
+                        .with_font_size(12.0)
+                        .with_color(Color::rgba8(80, 40, 0, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    input()
+                        .with_width(350.0)
+                        .with_height(30.0)
+                        .with_placeholder("ex. Momentary, 2 seconds, 1500ms")
+                        .with_signal(delay_text.clone())
+                        .on_change({
+                            let delay_text = delay_text.clone();
+
+                            move |text| {
+                                // rotation_text.set(text.to_string());
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
                     button("Try Random Animation")
                         .with_font_size(12.0)
                         .with_width(150.0)
@@ -740,6 +782,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let scale = scale_text.clone();
                             let opacity = opacity_text.clone();
                             let rotation = rotation_text.clone();
+                            let duration = duration_text.clone();
+                            let delay = delay_text.clone();
                             let editor_for_api = editor.clone();
                             let tx = command_tx.clone();
 
@@ -750,7 +794,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     position: position.get(),
                                     scale: scale.get(),
                                     opacity: opacity.get(),
-                                    rotation: rotation.get()
+                                    rotation: rotation.get(),
+                                    duration: duration.get(),
+                                    delay: delay.get(),
                                 });
                             }
                         })
@@ -2106,7 +2152,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         println!("Video item added to editor successfully: {}", video_config.id);
                                     }
-                                    Command::SubmitMotionForm { description, position, scale, opacity, rotation } => {
+                                    Command::SubmitMotionForm { description, position, scale, opacity, rotation, delay, duration } => {
                                         println!("Processing motion form submission from channel");
 
                                         // Reset canvas hidden state
@@ -2128,6 +2174,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             "scale": scale,
                                             "opacity": opacity,
                                             "rotation": rotation,
+                                            "delay": delay,
+                                            "duration": duration,
                                             "arrow_positions": arrow_positions.map(|(p1, p2)| serde_json::json!({"startX": p1.x, "startY": p1.y, "endX": p2.x, "endY": p2.y})),
                                             "object_dimensions": object_dimensions.map(|(w, h)| serde_json::json!({"width": w, "height": h}))
                                         });
