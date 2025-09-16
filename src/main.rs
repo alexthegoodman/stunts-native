@@ -1694,6 +1694,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         
                                         // Call update_motion_paths to refresh the editor
                                         editor.update_motion_paths(&updated_sequence);
+
+                                        editor.canvas_hidden = false;
+
+                                        save_saved_state_raw(editor.saved_state.clone().expect("Couldn't get saved state"));
                                         
                                         println!("Animation data successfully integrated into sequence (overwrote existing)");
                                     }
@@ -2107,7 +2111,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         // Reset canvas hidden state
                                         // let mut editor_lock = editor_for_render.lock().unwrap();
-                                        editor.canvas_hidden = false;
+                                        // editor.canvas_hidden = false;
                                         let object_dimensions = editor.last_motion_arrow_object_dimensions.clone();
                                         let arrow_positions = editor.last_motion_arrow_end_positions.clone();
                                         // drop(editor_lock);
@@ -2964,19 +2968,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                         }
                                                     });
 
-                                                    // Update sequence background
-                                                    if s.background_fill.is_none() {
-                                                        s.background_fill = Some(BackgroundFill::Color([
-                                                            wgpu_to_human(0.8) as i32,
-                                                            wgpu_to_human(0.8) as i32, 
-                                                            wgpu_to_human(0.8) as i32,
-                                                            255,
-                                                        ]));
-                                                    }
+                                                    // // Update sequence background
+                                                    // if s.background_fill.is_none() {
+                                                    //     s.background_fill = Some(BackgroundFill::Color([
+                                                    //         wgpu_to_human(0.8) as i32,
+                                                    //         wgpu_to_human(0.8) as i32, 
+                                                    //         wgpu_to_human(0.8) as i32,
+                                                    //         255,
+                                                    //     ]));
+                                                    // }
 
-                                                    if let Some(BackgroundFill::Color(fill)) = s.background_fill.as_mut() {
-                                                        *fill = background_color;
-                                                    }
+                                                    // if let Some(BackgroundFill::Color(fill)) = s.background_fill.as_mut() {
+                                                    //     *fill = background_color;
+                                                    // }
+
+                                                    // Just set it directly - simpler and clearer
+                                                    s.background_fill = Some(BackgroundFill::Color(background_color));
+
                                                 }
                                             });
                                         }
