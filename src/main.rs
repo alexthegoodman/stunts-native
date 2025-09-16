@@ -1192,13 +1192,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // let capture_button_text = Signal::new("Screen Capture".to_string());
 
-    let capture_button_text = if is_recording.get() {
-        "Stop Recording"
-    } else {
-        "Screen Capture"
-    }.to_string();
-    
-    let button_capture = button(capture_button_text)
+    // let capture_button_text = if is_recording.get() {
+    //     "Stop Recording"
+    // } else {
+    //     "Screen Capture"
+    // }.to_string();
+    let capture_button_text = Signal::new("Screen Capture".to_string());
+    let button_capture = button_signal(capture_button_text.clone())
         .with_font_size(10.0)
         .with_width(90.0)
         .with_height(20.0)
@@ -2386,6 +2386,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             Ok(_) => {
                                                 println!("Screen capture started successfully");
                                                 is_recording.set(true);
+                                                capture_button_text.set("Stop Capture".to_string());
                                                 capture_sources_visible.set(false);
                                             }
                                             Err(e) => {
@@ -2403,12 +2404,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 println!("Mouse data saved to: {:?}", mouse_data_path);
 
                                                 is_recording.set(false);
+                                                capture_button_text.set("Screen Capture".to_string());
 
                                                 // Video will be automatically added via the completion callback
                                             }
                                             Err(e) => {
                                                 println!("Failed to stop screen capture: {}", e);
                                                 is_recording.set(false);
+                                                capture_button_text.set("Screen Capture".to_string());
                                             }
                                         }
                                     }
