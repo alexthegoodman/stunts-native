@@ -2099,7 +2099,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 y: random_coords.1 as f32,
                                             },
                                             layer: 2,
-                                            mouse_path: None,
+                                            mouse_path: Some(mouse_positions_path.clone().display().to_string()),
                                         };
 
                                         let window_size = WindowSize {
@@ -2160,7 +2160,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     y: video_config.position.y as i32,
                                                 },
                                                 layer: video_config.layer,
-                                                mouse_path: None,
+                                                mouse_path: Some(mouse_positions_path.clone().display().to_string()),
                                             },
                                             source_duration_ms
                                         );
