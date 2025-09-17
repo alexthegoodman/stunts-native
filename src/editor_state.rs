@@ -1406,8 +1406,9 @@ impl EditorState {
     /// squish keyframes into target_duration, keeping proportional time between them
     pub fn scale_keyframes(
         &self,
-        saved_state: &mut SavedState,
-        selected_sequence_id: String,
+        // saved_state: &mut SavedState,
+        // selected_sequence_id: String,
+        sequence: &mut stunts_engine::animations::Sequence,
         target_duration_s: f32,
     ) -> Vec<AnimationData> {
         let target_duration = Duration::from_secs_f32(target_duration_s);
@@ -1419,16 +1420,16 @@ impl EditorState {
         //     .saved_state
         //     .as_ref()
         //     .expect("Couldn't get saved state");
-        if let Some(sequence) = saved_state
-            .sequences
-            .iter()
-            .find(|a| a.id == selected_sequence_id)
-        {
+        // if let Some(sequence) = saved_state
+        //     .sequences
+        //     .iter()
+        //     .find(|a| a.id == selected_sequence_id)
+        // {
             for animation in sequence.polygon_motion_paths.clone() {
                 let new_animation = self.scale_animation(animation, target_duration);
                 animations.push(new_animation);
             }
-        }
+        // }
 
         animations
     }
@@ -1575,10 +1576,13 @@ impl EditorState {
             });
         }
 
+        let sequence = saved_state.sequences.iter_mut().find(|s| s.id == selected_sequence_id).expect("Couldn't get sequence");
+
         // after updated with motion paths
         let scaled_paths = self.scale_keyframes(
-            saved_state,
-            selected_sequence_id.clone(),
+            // saved_state,
+            // selected_sequence_id.clone(),
+            sequence,
             (source_duration_ms / 1000) as f32,
         );
 
@@ -1597,6 +1601,8 @@ impl EditorState {
 
         //     save_saved_state_raw(saved_state.clone());
         // }
+
+        save_saved_state_raw(saved_state.clone());
     }
 
     // Helper method to register a new signal

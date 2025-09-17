@@ -94,6 +94,7 @@ enum Command {
     SelectSequence { sequence_id: String },
     LoadSequences,
     ApplyTheme { theme: [f64; 5] },
+    RedisplayCanvas,
 }
 
 // Authentication and Project Management structs  
@@ -1805,6 +1806,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         {
+            let tx = command_tx.clone();
             let editor_for_render = editor.clone();
             let state_for_render = editor_state.clone();
             let command_rx_for_render = Arc::new(Mutex::new(command_rx));
@@ -1831,7 +1833,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let sequence_data = editor.current_sequence_data.clone();
                                 let last_motion_arrow_object_id = editor.last_motion_arrow_object_id.to_string();
                                 let last_motion_arrow_object_type = editor.last_motion_arrow_object_type.clone();
-                               
+
+                                let mut video_item_dur_ms = 1000;
+                                if last_motion_arrow_object_type == ObjectType::VideoItem {
+                                    video_item_dur_ms = editor.video_items.iter().find(|v| v.id == last_motion_arrow_object_id).expect("Couldn't find video item").source_duration_ms.clone();
+                                }
+
                                 if let Some(ref mut saved_state) = editor.saved_state {
                                     // Clean up data
                                     let mut final_animation = animation_data.clone();
@@ -1861,32 +1868,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 
                                                 // Add the new motion path
                                                 sequence.polygon_motion_paths.push(final_animation.clone());
+
+                                                if last_motion_arrow_object_type == ObjectType::VideoItem {
+
+                                                    let scaled_paths = editor_state.scale_keyframes(
+                                                        sequence,
+                                                        (video_item_dur_ms / 1000) as f32,
+                                                    );
+
+                                                    sequence.polygon_motion_paths = scaled_paths;
+                                                }
                                                 break;
                                             }
                                         }
                                         
-                                        // Update the editor's current_sequence_data
-                                        let mut updated_sequence = current_seq_data.clone();
+                                        // // Update the editor's current_sequence_data
+                                        // let mut updated_sequence = current_seq_data.clone();
                                         
-                                        // Remove existing motion paths for this polygon_id from the editor's sequence
-                                        updated_sequence.polygon_motion_paths.retain(|path| 
-                                            path.polygon_id != final_animation.polygon_id
-                                        );
-                                        
-                                        // Add the new motion path
-                                        updated_sequence.polygon_motion_paths.push(final_animation);
-                                        editor.current_sequence_data = Some(updated_sequence.clone());
-                                        
-                                        // Call update_motion_paths to refresh the editor
-                                        editor.update_motion_paths(&updated_sequence);
-
-                                        editor.canvas_hidden = false;
-
-                                        save_saved_state_raw(editor.saved_state.clone().expect("Couldn't get saved state"));
-                                        
-                                        println!("Animation data successfully integrated into sequence (overwrote existing)");
+                                        // // Remove existing motion paths for this polygon_id from the editor's sequence
+                                        // updated_sequence.polygon_motion_paths.retain(|path| 
+                                        //     path.polygon_id != final_animation.polygon_id
+                                        // );
                                     }
                                 }
+
+                                // save and sync
+                                if let Some(current_seq_data) = &sequence_data {
+                                    let saved_state = editor.saved_state.clone().expect("Couldn't get saved state");
+                                    let updated_sequence = saved_state.sequences.iter().find(|s| s.id == current_seq_data.id).expect("Couldn't get saved state");
+                                
+                                    // // Add the new motion path
+                                    // updated_sequence.polygon_motion_paths.push(final_animation);
+                                    editor.current_sequence_data = Some(updated_sequence.clone());
+                                    
+                                    // Call update_motion_paths to refresh the editor
+                                    editor.update_motion_paths(&updated_sequence);
+
+                                    editor.canvas_hidden = false;
+
+                                    save_saved_state_raw(editor.saved_state.clone().expect("Couldn't get saved state"));
+                                    
+                                    println!("Animation data successfully integrated into sequence (overwrote existing)");
+                                }
+                                
                             }
                         }
                     }
@@ -2330,6 +2354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         let display_motion_loading = display_motion_loading.clone();
 
                                         println!("api_data {:?} {:?} {:?}", api_data, polygon_id, object_dimensions);
+                                        let tx = tx.clone();
                                         
                                         // Spawn the async task - no editor locking here!
                                         tokio::spawn(async move {
@@ -2417,6 +2442,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                         println!("API call failed with status: {}", response.status());
                                                         display_motion_form.set(false);
                                                         display_motion_loading.set(false);
+                                                        // let tx = command_tx.clone();
+                                                        if let Err(e) = tx.send(Command::RedisplayCanvas) {
+                                                            println!("Failed to send redisplay canvas command: {}", e);
+                                                        }
                                                     }
                                                 }
                                                 Err(e) => println!("API call failed: {}", e),
@@ -3326,6 +3355,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         save_saved_state_raw(editor.saved_state.clone().expect("Couldn't get saved state"));
 
                                         println!("Theme applied successfully!");
+                                    }
+                                    Command::RedisplayCanvas => {
+                                        println!("Redisplaying canvas");
+                                        editor.canvas_hidden = false;
                                     }
                                     
                                 }
