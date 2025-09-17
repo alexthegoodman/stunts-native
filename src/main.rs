@@ -1443,8 +1443,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Sequence selector dropdown
     let sequence_selector_dropdown = container()
         .absolute() // Position absolutely
-        .with_position(850.0, 5.0) // Position over canvas area 
-        .with_size(350.0, 120.0)
+        .with_position(550.0, 100.0) // Position over canvas area 
+        .with_size(350.0, 220.0)
         .with_background_color(Color::rgba8(255, 255, 255, 240))
         .with_border_radius(8.0)
         .with_display_signal(sequence_selector_visible.clone())
@@ -1475,7 +1475,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         })
                 )))
-                .with_child(Element::new_widget(Box::new(
+                .with_child(
                     row()
                         .with_size(300.0, 35.0)
                         .with_main_axis_alignment(MainAxisAlignment::Start)
@@ -1511,20 +1511,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                 })
-                        )))
-                        .with_child(Element::new_widget(Box::new(
-                            button("Cancel")
-                                .with_font_size(12.0)
-                                .with_width(60.0)
-                                .with_height(25.0)
-                                .on_click({
-                                    let sequence_selector_visible = sequence_selector_visible.clone();
-                                    move || {
-                                        sequence_selector_visible.set(false);
-                                    }
-                                })
-                        )))
-                )))
+                        ))).into_container_element()
+                        // .with_child(Element::new_widget(Box::new(
+                        //     button("Cancel")
+                        //         .with_font_size(12.0)
+                        //         .with_width(60.0)
+                        //         .with_height(25.0)
+                        //         .on_click({
+                        //             let sequence_selector_visible = sequence_selector_visible.clone();
+                        //             move || {
+                        //                 sequence_selector_visible.set(false);
+                        //             }
+                        //         })
+                        // )))
+                )
         .into_container_element()
         );
 
@@ -1540,14 +1540,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .with_child(Element::new_widget(Box::new(button_capture)))
         // .with_child(capture_sources_dropdown.into_container_element())
         // .with_child(Element::new_widget(Box::new(button3)))
-        .with_child(sequence_selector_dropdown.into_container_element())
+        
         .with_child(Element::new_widget(Box::new(button_properties)))
         .with_child(Element::new_widget(Box::new(button_themes)))
         .with_child(Element::new_widget(Box::new(
             button("Sequences")
-                .with_font_size(12.0)
+                .with_font_size(10.0)
                 .with_width(80.0)
-                .with_height(30.0)
+                .with_height(20.0)
                 .with_backgrounds(
                     Background::Gradient(button_normal.clone()),
                     Background::Gradient(button_hover.clone()),
@@ -1601,7 +1601,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let toolkit_inner = column()
             .with_size(1200.0, 50.0)
             .with_child(top_tools.into_container_element())
-            .with_child(bottom_tools.into_container_element());
+            .with_child(bottom_tools.into_container_element())
+            .with_child(sequence_selector_dropdown.into_container_element());
 
     let toolkit = container()
         .with_size(1200.0, 50.0)
@@ -3090,6 +3091,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::CreateSequence { name, project_id } => {
                                         println!("Processing create sequence command: {} for project {}", name, project_id);
+
+                                        editor.canvas_hidden = false;
                                         
                                         // editor is already a MutexGuard, no need to lock again
                                         // Create new sequence with unique ID
@@ -3109,6 +3112,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         // Set as current sequence first
                                         current_sequence_id.set(sequence_id.clone());
                                         editor.current_sequence_data = Some(new_sequence.clone());
+
+                                        editor.update_motion_paths(&new_sequence);
                                         
                                         // Add to saved state
                                         if let Some(ref mut saved_state) = editor.saved_state {
@@ -3129,6 +3134,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::SelectSequence { sequence_id } => {
                                         println!("Selecting sequence: {}", sequence_id);
+
+                                        editor.canvas_hidden = false;
                                         
                                         // editor is already a MutexGuard, no need to lock again
                                         // Clone the sequence data first to avoid borrowing conflicts
@@ -3168,12 +3175,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             });
                                             
                                             // Set as current sequence
-                                            editor.current_sequence_data = Some(sequence);
+                                            editor.current_sequence_data = Some(sequence.clone());
                                             current_sequence_id.set(sequence_id);
+
+                                            editor.update_motion_paths(&sequence);
                                         }
                                     }
                                     Command::LoadSequences => {
                                         println!("Loading sequences");
+
+                                        editor.canvas_hidden = true;
                                         
                                         // editor is already a MutexGuard, no need to lock again
                                         if let Some(ref saved_state) = editor.saved_state {
