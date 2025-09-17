@@ -98,6 +98,8 @@ enum Command {
     SelectProject { project_id: String },
     CreateProject { name: String },
     CreateSequence { name: String, project_id: String },
+    SelectSequence { sequence_id: String },
+    LoadSequences,
     ApplyTheme { theme: [f64; 5] },
 }
 
@@ -544,6 +546,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let capture_sources_visible = Signal::new(false);
     let available_capture_sources = Signal::new(Vec::<DropdownOption>::new());
     let is_recording = Signal::new(false);
+    
+    // Sequence management state
+    let sequence_selector_visible = Signal::new(false);
+    let available_sequences = Signal::new(Vec::<DropdownOption>::new());
+    let sequence_name_text = Signal::new("".to_string());
     
     // Export state
     let is_exporting = Signal::new(false);
@@ -1440,6 +1447,93 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_container_element()
             );    
 
+        // Sequence selector dropdown
+    let sequence_selector_dropdown = container()
+        .absolute() // Position absolutely
+        .with_position(850.0, 5.0) // Position over canvas area 
+        .with_size(350.0, 120.0)
+        .with_background_color(Color::rgba8(255, 255, 255, 240))
+        .with_border_radius(8.0)
+        .with_display_signal(sequence_selector_visible.clone())
+        .with_child(
+            column()
+                .with_main_axis_alignment(MainAxisAlignment::Start)
+                .with_cross_axis_alignment(CrossAxisAlignment::Start)
+                .with_child(Element::new_widget(Box::new(
+                    text("Select Sequence:")
+                        .with_font_size(14.0)
+                        .with_color(Color::rgba8(60, 60, 60, 255))
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    dropdown()
+                        .with_size(200.0, 25.0)
+                        .with_font_size(12.0)
+                        .with_placeholder("Select a sequence...")
+                        .with_options_signal(available_sequences.clone())
+                        .on_selection_changed({
+                            let tx = command_tx.clone();
+                            let sequence_selector_visible = sequence_selector_visible.clone();
+                            let current_sequence_id = current_sequence_id.clone();
+                            move |selected_sequence_id: String| {
+                                println!("Selected sequence ID: {}", selected_sequence_id);
+                                current_sequence_id.set(selected_sequence_id.clone());
+                                sequence_selector_visible.set(false);
+                                let _ = tx.send(Command::SelectSequence { sequence_id: selected_sequence_id });
+                            }
+                        })
+                )))
+                .with_child(Element::new_widget(Box::new(
+                    row()
+                        .with_size(300.0, 35.0)
+                        .with_main_axis_alignment(MainAxisAlignment::Start)
+                        .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                        .with_child(Element::new_widget(Box::new(
+                            text_input(sequence_name_text.clone())
+                                .with_placeholder("New sequence name...")
+                                .with_width(150.0)
+                                .with_height(25.0)
+                                .with_font_size(12.0)
+                        )))
+                        .with_child(Element::new_widget(Box::new(
+                            button("Create")
+                                .with_font_size(12.0)
+                                .with_width(60.0)
+                                .with_height(25.0)
+                                .on_click({
+                                    let tx = command_tx.clone();
+                                    let sequence_name_text = sequence_name_text.clone();
+                                    let sequence_selector_visible = sequence_selector_visible.clone();
+                                    let selected_project_signal = selected_project_signal.clone();
+                                    move || {
+                                        let name = sequence_name_text.get();
+                                        if !name.trim().is_empty() {
+                                            if let Some(project) = selected_project_signal.get() {
+                                                let _ = tx.send(Command::CreateSequence { 
+                                                    name: name.clone(), 
+                                                    project_id: project.id 
+                                                });
+                                                sequence_name_text.set("".to_string());
+                                                sequence_selector_visible.set(false);
+                                            }
+                                        }
+                                    }
+                                })
+                        )))
+                        .with_child(Element::new_widget(Box::new(
+                            button("Cancel")
+                                .with_font_size(12.0)
+                                .with_width(60.0)
+                                .with_height(25.0)
+                                .on_click({
+                                    let sequence_selector_visible = sequence_selector_visible.clone();
+                                    move || {
+                                        sequence_selector_visible.set(false);
+                                    }
+                                })
+                        )))
+                )))
+        );
+
     let top_tools = row()
         .with_size(1200.0, 50.0)
         .with_main_axis_alignment(MainAxisAlignment::Start)
@@ -1452,8 +1546,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .with_child(Element::new_widget(Box::new(button_capture)))
         // .with_child(capture_sources_dropdown.into_container_element())
         // .with_child(Element::new_widget(Box::new(button3)))
+        .with_child(sequence_selector_dropdown.into_container_element())
         .with_child(Element::new_widget(Box::new(button_properties)))
         .with_child(Element::new_widget(Box::new(button_themes)))
+        .with_child(Element::new_widget(Box::new(
+            button("Sequences")
+                .with_font_size(12.0)
+                .with_width(80.0)
+                .with_height(30.0)
+                .with_backgrounds(
+                    Background::Gradient(button_normal.clone()),
+                    Background::Gradient(button_hover.clone()),
+                    Background::Gradient(button_pressed.clone())
+                )
+                .on_click({
+                    let sequence_selector_visible = sequence_selector_visible.clone();
+                    let tx = command_tx.clone();
+                    move || {
+                        sequence_selector_visible.set(!sequence_selector_visible.get());
+                        let _ = tx.send(Command::LoadSequences);
+                    }
+                })
+        )))
         .with_child(Element::new_widget(Box::new(export_button)))
         .with_child(Element::new_widget(Box::new(
             text_signal(export_status.clone())
@@ -1554,7 +1668,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let container_gradient = Gradient::new_radial((0.0, 0.0), 450.0)
         .with_stops([Color::rgb8(90, 90, 95), Color::rgb8(45, 45, 50)]);
 
-    let main_column = column()
+        let main_column = column()
         .with_size(1200.0, 800.0) 
         // .with_radial_gradient(container_gradient)
         // .with_padding(Padding::all(20.0))
@@ -2803,6 +2917,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     show_editor.set(true);
                                                     editor.canvas_hidden = false;
                                                     
+                                                    // Load sequences into dropdown
+                                                    let sequence_options: Vec<DropdownOption> = saved_state.sequences.iter().map(|seq| {
+                                                        DropdownOption {
+                                                            label: seq.name.clone(),
+                                                            value: seq.id.clone(),
+                                                        }
+                                                    }).collect();
+                                                    available_sequences.set(sequence_options);
+                                                    
                                                     println!("Project selected and loaded: {}", project.project_name);
                                                 }
                                                 Err(e) => {
@@ -2973,7 +3096,100 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                     Command::CreateSequence { name, project_id } => {
                                         println!("Processing create sequence command: {} for project {}", name, project_id);
-                                        // TODO: Implement sequence creation API call
+                                        
+                                        let mut editor = editor.lock().unwrap();
+                                        if let Some(ref mut saved_state) = editor.saved_state {
+                                            // Create new sequence with unique ID
+                                            let sequence_id = uuid::Uuid::new_v4().to_string();
+                                            let new_sequence = stunts_engine::saved_state::Sequence {
+                                                id: sequence_id.clone(),
+                                                name: name.clone(),
+                                                duration_ms: 5000, // Default 5 second duration
+                                                background_fill: None,
+                                                active_polygons: Vec::new(),
+                                                active_text_items: Vec::new(),
+                                                active_image_items: Vec::new(),
+                                                active_video_items: Vec::new(),
+                                                polygon_motion_paths: Vec::new(),
+                                            };
+                                            
+                                            // Add to saved state
+                                            saved_state.sequences.push(new_sequence.clone());
+                                            
+                                            // Set as current sequence
+                                            current_sequence_id.set(sequence_id.clone());
+                                            editor.current_sequence_data = Some(new_sequence);
+                                            
+                                            // Save the updated state
+                                            if let Err(e) = stunts_engine::saved_state::save_saved_state_raw(saved_state.clone()) {
+                                                eprintln!("Failed to save state after creating sequence: {}", e);
+                                            }
+                                            
+                                            // Update available sequences dropdown
+                                            let sequence_options: Vec<DropdownOption> = saved_state.sequences.iter().map(|seq| {
+                                                DropdownOption {
+                                                    label: seq.name.clone(),
+                                                    value: seq.id.clone(),
+                                                }
+                                            }).collect();
+                                            available_sequences.set(sequence_options);
+                                        }
+                                    }
+                                    Command::SelectSequence { sequence_id } => {
+                                        println!("Selecting sequence: {}", sequence_id);
+                                        
+                                        let mut editor = editor.lock().unwrap();
+                                        if let Some(ref saved_state) = editor.saved_state {
+                                            // Find the selected sequence
+                                            if let Some(sequence) = saved_state.sequences.iter().find(|s| s.id == sequence_id) {
+                                                // Hide all objects first
+                                                editor.polygons.iter_mut().for_each(|p| p.hidden = true);
+                                                editor.image_items.iter_mut().for_each(|i| i.hidden = true);
+                                                editor.text_items.iter_mut().for_each(|t| t.hidden = true);
+                                                editor.video_items.iter_mut().for_each(|v| v.hidden = true);
+                                                
+                                                // Show objects for this sequence
+                                                sequence.active_polygons.iter().for_each(|ap| {
+                                                    if let Some(polygon) = editor.polygons.iter_mut().find(|p| p.id.to_string() == ap.id) {
+                                                        polygon.hidden = false;
+                                                    }
+                                                });
+                                                sequence.active_image_items.iter().for_each(|si| {
+                                                    if let Some(image) = editor.image_items.iter_mut().find(|i| i.id.to_string() == si.id) {
+                                                        image.hidden = false;
+                                                    }
+                                                });
+                                                sequence.active_text_items.iter().for_each(|tr| {
+                                                    if let Some(text) = editor.text_items.iter_mut().find(|t| t.id.to_string() == tr.id) {
+                                                        text.hidden = false;
+                                                    }
+                                                });
+                                                sequence.active_video_items.iter().for_each(|vi| {
+                                                    if let Some(video) = editor.video_items.iter_mut().find(|v| v.id.to_string() == vi.id) {
+                                                        video.hidden = false;
+                                                    }
+                                                });
+                                                
+                                                // Set as current sequence
+                                                editor.current_sequence_data = Some(sequence.clone());
+                                                current_sequence_id.set(sequence_id);
+                                            }
+                                        }
+                                    }
+                                    Command::LoadSequences => {
+                                        println!("Loading sequences");
+                                        
+                                        let editor = editor.lock().unwrap();
+                                        if let Some(ref saved_state) = editor.saved_state {
+                                            // Update available sequences dropdown
+                                            let sequence_options: Vec<DropdownOption> = saved_state.sequences.iter().map(|seq| {
+                                                DropdownOption {
+                                                    label: seq.name.clone(),
+                                                    value: seq.id.clone(),
+                                                }
+                                            }).collect();
+                                            available_sequences.set(sequence_options);
+                                        }
                                     }
                                     Command::ApplyTheme { theme } => {
                                         println!("Applying theme: {:?}", theme);
