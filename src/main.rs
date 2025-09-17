@@ -1839,6 +1839,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     video_item_dur_ms = editor.video_items.iter().find(|v| v.id == last_motion_arrow_object_id).expect("Couldn't find video item").source_duration_ms.clone();
                                 }
 
+                                println!("video_item_dur_ms {:?}", video_item_dur_ms);
+
                                 if let Some(ref mut saved_state) = editor.saved_state {
                                     // Clean up data
                                     let mut final_animation = animation_data.clone();
@@ -1854,7 +1856,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         final_animation.properties.push(zoom_prop);
                                     }
 
-                                    println!("final_animation: {:?}", final_animation);
+                                    // println!("final_animation: {:?}", final_animation);
 
 
                                     // Find the current sequence and add/overwrite the animation data
