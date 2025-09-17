@@ -1481,11 +1481,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .with_main_axis_alignment(MainAxisAlignment::Start)
                         .with_cross_axis_alignment(CrossAxisAlignment::Center)
                         .with_child(Element::new_widget(Box::new(
-                            text_input(sequence_name_text.clone())
+                            input()
                                 .with_placeholder("New sequence name...")
                                 .with_width(150.0)
                                 .with_height(25.0)
-                                .with_font_size(12.0)
+                                .with_signal(sequence_name_text.clone())
                         )))
                         .with_child(Element::new_widget(Box::new(
                             button("Create")
@@ -1503,7 +1503,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             if let Some(project) = selected_project_signal.get() {
                                                 let _ = tx.send(Command::CreateSequence { 
                                                     name: name.clone(), 
-                                                    project_id: project.id 
+                                                    project_id: project.project_id 
                                                 });
                                                 sequence_name_text.set("".to_string());
                                                 sequence_selector_visible.set(false);
@@ -1525,6 +1525,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 })
                         )))
                 )))
+        .into_container_element()
         );
 
     let top_tools = row()
@@ -3090,33 +3091,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Command::CreateSequence { name, project_id } => {
                                         println!("Processing create sequence command: {} for project {}", name, project_id);
                                         
-                                        let mut editor = editor.lock().unwrap();
+                                        // editor is already a MutexGuard, no need to lock again
+                                        // Create new sequence with unique ID
+                                        let sequence_id = uuid::Uuid::new_v4().to_string();
+                                        let new_sequence = Sequence {
+                                            id: sequence_id.clone(),
+                                            name: name.clone(),
+                                            duration_ms: 5000, // Default 5 second duration
+                                            background_fill: None,
+                                            active_polygons: Vec::new(),
+                                            active_text_items: Vec::new(),
+                                            active_image_items: Vec::new(),
+                                            active_video_items: Vec::new(),
+                                            polygon_motion_paths: Vec::new(),
+                                        };
+                                        
+                                        // Set as current sequence first
+                                        current_sequence_id.set(sequence_id.clone());
+                                        editor.current_sequence_data = Some(new_sequence.clone());
+                                        
+                                        // Add to saved state
                                         if let Some(ref mut saved_state) = editor.saved_state {
-                                            // Create new sequence with unique ID
-                                            let sequence_id = uuid::Uuid::new_v4().to_string();
-                                            let new_sequence = stunts_engine::animations::Sequence {
-                                                id: sequence_id.clone(),
-                                                name: name.clone(),
-                                                duration_ms: 5000, // Default 5 second duration
-                                                background_fill: None,
-                                                active_polygons: Vec::new(),
-                                                active_text_items: Vec::new(),
-                                                active_image_items: Vec::new(),
-                                                active_video_items: Vec::new(),
-                                                polygon_motion_paths: Vec::new(),
-                                            };
-                                            
-                                            // Add to saved state
                                             saved_state.sequences.push(new_sequence.clone());
                                             
-                                            // Set as current sequence
-                                            current_sequence_id.set(sequence_id.clone());
-                                            editor.current_sequence_data = Some(new_sequence);
-                                            
                                             // Save the updated state
-                                            if let Err(e) = stunts_engine::saved_state::save_saved_state_raw(saved_state.clone()) {
-                                                eprintln!("Failed to save state after creating sequence: {}", e);
-                                            }
+                                            save_saved_state_raw(saved_state.clone());
                                             
                                             // Update available sequences dropdown
                                             let sequence_options: Vec<DropdownOption> = saved_state.sequences.iter().map(|seq| {
@@ -3131,48 +3130,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Command::SelectSequence { sequence_id } => {
                                         println!("Selecting sequence: {}", sequence_id);
                                         
-                                        let mut editor = editor.lock().unwrap();
-                                        if let Some(ref saved_state) = editor.saved_state {
-                                            // Find the selected sequence
-                                            if let Some(sequence) = saved_state.sequences.iter().find(|s| s.id == sequence_id) {
-                                                // Hide all objects first
-                                                editor.polygons.iter_mut().for_each(|p| p.hidden = true);
-                                                editor.image_items.iter_mut().for_each(|i| i.hidden = true);
-                                                editor.text_items.iter_mut().for_each(|t| t.hidden = true);
-                                                editor.video_items.iter_mut().for_each(|v| v.hidden = true);
-                                                
-                                                // Show objects for this sequence
-                                                sequence.active_polygons.iter().for_each(|ap| {
-                                                    if let Some(polygon) = editor.polygons.iter_mut().find(|p| p.id.to_string() == ap.id) {
-                                                        polygon.hidden = false;
-                                                    }
-                                                });
-                                                sequence.active_image_items.iter().for_each(|si| {
-                                                    if let Some(image) = editor.image_items.iter_mut().find(|i| i.id.to_string() == si.id) {
-                                                        image.hidden = false;
-                                                    }
-                                                });
-                                                sequence.active_text_items.iter().for_each(|tr| {
-                                                    if let Some(text) = editor.text_items.iter_mut().find(|t| t.id.to_string() == tr.id) {
-                                                        text.hidden = false;
-                                                    }
-                                                });
-                                                sequence.active_video_items.iter().for_each(|vi| {
-                                                    if let Some(video) = editor.video_items.iter_mut().find(|v| v.id.to_string() == vi.id) {
-                                                        video.hidden = false;
-                                                    }
-                                                });
-                                                
-                                                // Set as current sequence
-                                                editor.current_sequence_data = Some(sequence.clone());
-                                                current_sequence_id.set(sequence_id);
-                                            }
+                                        // editor is already a MutexGuard, no need to lock again
+                                        // Clone the sequence data first to avoid borrowing conflicts
+                                        let sequence_data = if let Some(ref saved_state) = editor.saved_state {
+                                            saved_state.sequences.iter().find(|s| s.id == sequence_id).cloned()
+                                        } else {
+                                            None
+                                        };
+                                        
+                                        if let Some(sequence) = sequence_data {
+                                            // Hide all objects first
+                                            editor.polygons.iter_mut().for_each(|p| p.hidden = true);
+                                            editor.image_items.iter_mut().for_each(|i| i.hidden = true);
+                                            editor.text_items.iter_mut().for_each(|t| t.hidden = true);
+                                            editor.video_items.iter_mut().for_each(|v| v.hidden = true);
+                                            
+                                            // Show objects for this sequence
+                                            sequence.active_polygons.iter().for_each(|ap| {
+                                                if let Some(polygon) = editor.polygons.iter_mut().find(|p| p.id.to_string() == ap.id) {
+                                                    polygon.hidden = false;
+                                                }
+                                            });
+                                            sequence.active_image_items.iter().for_each(|si| {
+                                                if let Some(image) = editor.image_items.iter_mut().find(|i| i.id.to_string() == si.id) {
+                                                    image.hidden = false;
+                                                }
+                                            });
+                                            sequence.active_text_items.iter().for_each(|tr| {
+                                                if let Some(text) = editor.text_items.iter_mut().find(|t| t.id.to_string() == tr.id) {
+                                                    text.hidden = false;
+                                                }
+                                            });
+                                            sequence.active_video_items.iter().for_each(|vi| {
+                                                if let Some(video) = editor.video_items.iter_mut().find(|v| v.id.to_string() == vi.id) {
+                                                    video.hidden = false;
+                                                }
+                                            });
+                                            
+                                            // Set as current sequence
+                                            editor.current_sequence_data = Some(sequence);
+                                            current_sequence_id.set(sequence_id);
                                         }
                                     }
                                     Command::LoadSequences => {
                                         println!("Loading sequences");
                                         
-                                        let editor = editor.lock().unwrap();
+                                        // editor is already a MutexGuard, no need to lock again
                                         if let Some(ref saved_state) = editor.saved_state {
                                             // Update available sequences dropdown
                                             let sequence_options: Vec<DropdownOption> = saved_state.sequences.iter().map(|seq| {
