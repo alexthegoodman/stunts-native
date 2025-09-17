@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use gui_core::{App, Element};
 use gui_core::widgets::*;
 use gui_core::widgets::container::{Padding, Background};
