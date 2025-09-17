@@ -1,7 +1,6 @@
 use gui_core::{Element};
 use gui_core::widgets::container::container;
 use vello::peniko::Color;
-use std::sync::{Arc, Mutex};
 
 pub fn create_render_placeholder() -> Result<Element, Box<dyn std::error::Error>> {
     // Create a placeholder container that will occupy the space where the render area should be

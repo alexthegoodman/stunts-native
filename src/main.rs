@@ -2,14 +2,9 @@ use gui_core::{App, Element};
 use gui_core::widgets::*;
 use gui_core::widgets::container::{Padding, Background};
 use gui_core::widgets::text::text_signal;
-use gui_core::widgets::property_inspector::{property_inspector, PropertyGroup, PropertyDefinition, PropertyType};
 use gui_core::widgets::dropdown::DropdownOption;
 use gui_reactive::Signal;
-use vello::peniko::{Color, Gradient, GradientKind, ColorStops, Extend};
-use gui_core::widgets::canvas::canvas;
-use vello::kurbo::{Circle, RoundedRect};
-use vello::{Scene, kurbo::Affine};
-use wgpu::{Device, Queue};
+use vello::peniko::{Color, Gradient};
 use std::sync::{Arc, Mutex};
 use std::cell::RefCell;
 use std::sync::mpsc;
@@ -19,32 +14,28 @@ use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use stunts_engine::{
-    editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader, ObjectProperty},
-    capture::{StCapture, get_sources, WindowInfo, MousePosition, SourceData},
+    editor::{Viewport, WindowSize, Editor, Point, ObjectProperty},
+    capture::{get_sources, WindowInfo, MousePosition, SourceData},
     export::exporter::{ExportProgress, Exporter},
     timelines::{SavedTimelineStateConfig, TimelineSequence, TrackType},
 };
 use stunts_engine::polygon::{
-    Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
+    PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
 };
 use stunts_engine::editor::rgb_to_wgpu;
-use stunts_engine::st_image::{SavedStImageConfig, StImage, StImageConfig};
+use stunts_engine::st_image::{SavedStImageConfig, StImageConfig};
 use stunts_engine::st_video::{SavedStVideoConfig, StVideoConfig};
-use stunts_engine::text_due::{SavedTextRendererConfig, TextRenderer, TextRendererConfig};
+use stunts_engine::text_due::{SavedTextRendererConfig, TextRendererConfig};
 use uuid::Uuid;
 use rand::Rng;
-use undo::{Edit, Record};
+use undo::Record;
 use stunts_engine::{
     animations::{BackgroundFill, Sequence, ObjectType},
 };
-use winit::event::{ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta};
-use winit::dpi::{LogicalSize, PhysicalSize};
-use stunts_engine::gpu_resources::GpuResources;
-use editor_state::EditorState;
 use std::fs;
 use stunts_engine::editor::wgpu_to_human;
 use keyring::Entry;
-use stunts_engine::saved_state::{ProjectData, ProjectsDataFile};
+use stunts_engine::saved_state::ProjectData;
 use chrono;
 use stunts_engine::saved_state::get_random_coords;
 use crate::helpers::utilities::{AuthState, AuthToken};
@@ -195,7 +186,7 @@ impl Default for ApiPosition {
 // Conversion functions
 impl ApiAnimationData {
     fn to_animation_data(self, polygon_id: String, object_type: ObjectType) -> stunts_engine::animations::AnimationData {
-        use stunts_engine::animations::{AnimationData, AnimationProperty, UIKeyframe, KeyframeValue, EasingType, ObjectType};
+        use stunts_engine::animations::{AnimationData, AnimationProperty, UIKeyframe, KeyframeValue, EasingType};
         use stunts_engine::editor::PathType;
         
         // Convert API properties to AnimationProperty
@@ -2547,7 +2538,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     Command::StopScreenCapture => {
                                         println!("Processing stop screen capture command");
 
-                                        let (mouse_positions_path) = editor.st_capture
+                                        let mouse_positions_path = editor.st_capture
                                                     .stop_mouse_tracking(
                                                         project_id.to_string(),
                                                     )
@@ -3101,7 +3092,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         if let Some(ref mut saved_state) = editor.saved_state {
                                             // Create new sequence with unique ID
                                             let sequence_id = uuid::Uuid::new_v4().to_string();
-                                            let new_sequence = stunts_engine::saved_state::Sequence {
+                                            let new_sequence = stunts_engine::animations::Sequence {
                                                 id: sequence_id.clone(),
                                                 name: name.clone(),
                                                 duration_ms: 5000, // Default 5 second duration

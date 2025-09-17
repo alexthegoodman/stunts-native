@@ -1,6 +1,4 @@
 use gui_core::{Element, widgets::*};
-use gui_core::widgets::container::{Padding, Background};
-use gui_core::widgets::text::text_signal;
 use gui_core::widgets::dropdown::{DropdownOption, dropdown};
 use gui_reactive::Signal;
 use vello::peniko::{Color, Gradient};

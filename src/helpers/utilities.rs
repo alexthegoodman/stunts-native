@@ -1,33 +1,10 @@
-use std::{fs, path::PathBuf, sync::MutexGuard};
 
-use directories::{BaseDirs, UserDirs};
 // use floem::reactive::RwSignal;
 // use floem::reactive::SignalGet;
 // use floem::reactive::SignalUpdate;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use stunts_engine::animations::AnimationData;
-use stunts_engine::animations::AnimationProperty;
-use stunts_engine::animations::BackgroundFill;
-use stunts_engine::animations::EasingType;
-use stunts_engine::animations::KeyType;
-use stunts_engine::animations::KeyframeValue;
-use stunts_engine::animations::ObjectType;
-use stunts_engine::animations::Sequence;
-use stunts_engine::animations::UIKeyframe;
-use stunts_engine::editor::wgpu_to_human;
-use stunts_engine::editor::PathType;
-use stunts_engine::polygon::SavedPoint;
-use stunts_engine::polygon::SavedPolygonConfig;
-use stunts_engine::polygon::SavedStroke;
-use stunts_engine::timelines::SavedTimelineStateConfig;
-use stunts_engine::editor::WindowSize;
-use uuid::Uuid;
 
-use stunts_engine::saved_state::ProjectData;
-use stunts_engine::saved_state::ProjectsDataFile;
-use stunts_engine::saved_state::SavedState;
 
 #[cfg(feature = "production")]
 pub const API_URL: &str = "https://madebycommon.com";

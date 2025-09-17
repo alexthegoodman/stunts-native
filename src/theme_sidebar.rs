@@ -1,11 +1,8 @@
 use gui_core::{Element, widgets::*};
-use gui_core::widgets::container::{Padding, Background};
-use gui_core::widgets::text::text_signal;
-use gui_reactive::Signal;
-use vello::peniko::{Color, Gradient};
-use std::sync::{Arc, Mutex, mpsc};
+use gui_core::widgets::container::Background;
+use vello::peniko::Color;
+use std::sync::mpsc;
 use crate::Command;
-use stunts_engine::editor::rgb_to_wgpu;
 
 pub const THEME_COLORS: [[&str; 5]; 10] = [
     ["#FFE4E1", "#FF6B6B", "#FF0000", "#B22222", "#8B0000"], // red

@@ -2,9 +2,6 @@ use std::sync::Arc;
 use stunts_engine::{
     // editor_manager,
     editor::Editor,
-    // editor_state::EditorState,
-    // editor_utilities::EditorUtilities,
-    gpu_resources::GpuResources,
     editor::ControlMode,
 };
 use vello;

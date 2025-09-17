@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -9,7 +7,7 @@ use std::time::Duration;
 // use floem::keyboard::ModifiersState;
 // use floem::reactive::{RwSignal, SignalUpdate};
 use stunts_engine::animations::{
-    AnimationData, AnimationProperty, BackgroundFill, EasingType, KeyType, KeyframeValue,
+    AnimationData, AnimationProperty, EasingType, KeyType, KeyframeValue,
     ObjectType, UIKeyframe,
 };
 use stunts_engine::editor::{
@@ -62,7 +60,7 @@ impl Edit for ObjectEdit {
                     ObjectType::TextItem => {
                         editor.update_text(self.object_id, "width", InputValue::Number(*w), true);
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -80,7 +78,7 @@ impl Edit for ObjectEdit {
                     ObjectType::ImageItem => {
                         editor.update_image(self.object_id, "width", InputValue::Number(*w));
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -98,7 +96,7 @@ impl Edit for ObjectEdit {
                     ObjectType::VideoItem => {
                         editor.update_video(self.object_id, "width", InputValue::Number(*w));
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -308,7 +306,7 @@ impl Edit for ObjectEdit {
                     if let Some(selected_sequence_id) = self.selected_sequence_id.clone() {
                         editor.update_background(self.object_id, "blue", InputValue::Number(*h));
 
-                        let mut red = h.to_string();
+                        let red = h.to_string();
                         // self.signal.expect("signal error").set(red);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -436,7 +434,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::BorderRadius(h) => {
                 editor.update_polygon(self.object_id, "border_radius", InputValue::Number(*h), true);
 
-                let mut border_radius = h.to_string();
+                let border_radius = h.to_string();
                 // self.signal.expect("signal error").set(border_radius);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -454,7 +452,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::StrokeThickness(h) => {
                 editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h), true);
 
-                let mut stroke_thickness = h.to_string();
+                let stroke_thickness = h.to_string();
                 // self.signal.expect("signal error").set(stroke_thickness);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -472,7 +470,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::StrokeRed(h) => {
                 editor.update_polygon(self.object_id, "stroke_red", InputValue::Number(*h), true);
 
-                let mut stroke_red = h.to_string();
+                let stroke_red = h.to_string();
                 // self.signal.expect("signal error").set(stroke_red);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -490,7 +488,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::StrokeGreen(h) => {
                 editor.update_polygon(self.object_id, "stroke_green", InputValue::Number(*h), true);
 
-                let mut stroke_green = h.to_string();
+                let stroke_green = h.to_string();
                 // self.signal.expect("signal error").set(stroke_green);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -508,7 +506,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::StrokeBlue(h) => {
                 editor.update_polygon(self.object_id, "stroke_blue", InputValue::Number(*h), true);
 
-                let mut stroke_blue = h.to_string();
+                let stroke_blue = h.to_string();
                 // self.signal.expect("signal error").set(stroke_blue);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -564,7 +562,7 @@ impl Edit for ObjectEdit {
                     ObjectType::Polygon => {
                         editor.update_polygon(self.object_id, "width", InputValue::Number(*w), true);
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -582,7 +580,7 @@ impl Edit for ObjectEdit {
                     ObjectType::TextItem => {
                         editor.update_text(self.object_id, "width", InputValue::Number(*w), true);
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -600,7 +598,7 @@ impl Edit for ObjectEdit {
                     ObjectType::ImageItem => {
                         editor.update_image(self.object_id, "width", InputValue::Number(*w));
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -618,7 +616,7 @@ impl Edit for ObjectEdit {
                     ObjectType::VideoItem => {
                         editor.update_video(self.object_id, "width", InputValue::Number(*w));
 
-                        let mut width = w.to_string();
+                        let width = w.to_string();
                         // self.signal.expect("signal error").set(width);
 
                         // saved_state.sequences.iter_mut().for_each(|s| {
@@ -853,7 +851,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::BorderRadius(h) => {
                 editor.update_polygon(self.object_id, "border_radius", InputValue::Number(*h), true);
 
-                let mut border_radius = h.to_string();
+                let border_radius = h.to_string();
                 // self.signal.expect("signal error").set(border_radius);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -871,7 +869,7 @@ impl Edit for ObjectEdit {
             ObjectProperty::StrokeThickness(h) => {
                 editor.update_polygon(self.object_id, "stroke_thickness", InputValue::Number(*h), true);
 
-                let mut stroke_thickness = h.to_string();
+                let stroke_thickness = h.to_string();
                 // self.signal.expect("signal error").set(stroke_thickness);
 
                 // saved_state.sequences.iter_mut().for_each(|s| {
@@ -1102,7 +1100,7 @@ impl EditorState {
             key_type: KeyType::Frame,
         });
 
-        let mut position_prop = AnimationProperty {
+        let position_prop = AnimationProperty {
             name: "Position".to_string(),
             property_path: "position".to_string(),
             children: Vec::new(),
@@ -1161,7 +1159,7 @@ impl EditorState {
             key_type: KeyType::Frame,
         });
 
-        let mut rotation_prop = AnimationProperty {
+        let rotation_prop = AnimationProperty {
             name: "Rotation".to_string(),
             property_path: "rotation".to_string(),
             children: Vec::new(),
@@ -1220,7 +1218,7 @@ impl EditorState {
             key_type: KeyType::Frame,
         });
 
-        let mut scale_prop = AnimationProperty {
+        let scale_prop = AnimationProperty {
             name: "Scale".to_string(),
             property_path: "scale".to_string(),
             children: Vec::new(),
@@ -1279,7 +1277,7 @@ impl EditorState {
             key_type: KeyType::Frame,
         });
 
-        let mut opacity_prop = AnimationProperty {
+        let opacity_prop = AnimationProperty {
             name: "Opacity".to_string(),
             property_path: "opacity".to_string(),
             children: Vec::new(),
@@ -1365,7 +1363,7 @@ impl EditorState {
             key_type: KeyType::Frame,
         });
 
-        let mut zoom_prop = AnimationProperty {
+        let zoom_prop = AnimationProperty {
             name: "Zoom / Popout".to_string(),
             property_path: "zoom".to_string(),
             children: Vec::new(),

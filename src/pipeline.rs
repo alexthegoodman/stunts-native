@@ -3,7 +3,6 @@ use stunts_engine::camera::{Camera3D as Camera, CameraBinding};
 use stunts_engine::dot::RingDot;
 use stunts_engine::editor::{Editor, Point, Viewport, WindowSize, WindowSizeShader};
 use stunts_engine::vertex::Vertex;
-use stunts_engine::gpu_resources::GpuResources;
 use wgpu::util::DeviceExt;
 use stunts_engine::polygon::{Polygon, Stroke};
 use stunts_engine::editor::rgb_to_wgpu;

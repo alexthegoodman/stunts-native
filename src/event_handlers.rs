@@ -1,33 +1,10 @@
-use gui_core::{App, Element};
-use gui_core::widgets::*;
-use gui_core::widgets::container::{Padding, Background};
-use gui_core::widgets::text::text_signal;
-use gui_reactive::Signal;
-use vello::peniko::{Color, Gradient, GradientKind, ColorStops, Extend};
-use gui_core::widgets::canvas::canvas;
-use vello::kurbo::{Circle, RoundedRect};
-use vello::{Scene, kurbo::Affine};
-use wgpu::{Device, Queue};
 use std::sync::{Arc, Mutex};
-use std::cell::RefCell;
-use std::sync::mpsc;
-use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use stunts_engine::{
     editor::{Viewport, WindowSize, Editor, Point, WindowSizeShader},
 };
-use stunts_engine::polygon::{
-    Polygon, PolygonConfig, SavedPoint, SavedPolygonConfig, SavedStroke, Stroke,
-};
-use uuid::Uuid;
-use rand::Rng;
-use undo::{Edit, Record};
-use stunts_engine::{
-    animations::Sequence, timelines::SavedTimelineStateConfig,
-};
+use undo::Record;
 use winit::event::{ElementState, KeyEvent, Modifiers, MouseButton, MouseScrollDelta};
 use winit::dpi::{LogicalSize, PhysicalSize};
-use stunts_engine::gpu_resources::GpuResources;
 use crate::editor_state::EditorState;
 
 // NOTE: these handlers are tied to winit events, the other ones are tied to the editor
@@ -64,14 +41,14 @@ pub fn handle_cursor_moved(
 }
 
 pub fn handle_mouse_input(
-    mut editor_state: Arc<Mutex<EditorState>>,
+    editor_state: Arc<Mutex<EditorState>>,
     editor: std::sync::Arc<Mutex<Editor>>,
     // window_size: WindowSize,
     viewport: std::sync::Arc<Mutex<Viewport>>,
     record: Arc<Mutex<Record<crate::editor_state::ObjectEdit>>>,
 ) -> Option<Box<dyn Fn(MouseButton, ElementState)>> {
     Some(Box::new(move |button, state| {
-        let mut editor_orig = Arc::clone(&editor);
+        let editor_orig = Arc::clone(&editor);
         let mut editor = editor.lock().unwrap();
         if let Some(gpu_resources) = editor.gpu_resources.clone() {
             let viewport = viewport.lock().unwrap();
@@ -145,7 +122,7 @@ pub fn handle_window_resize(
         viewport.width = size.width as f32;
         viewport.height = size.height as f32;
 
-        let mut camera = editor_g
+        let camera = editor_g
             .camera
             .as_mut()
             .expect("Couldn't get camera on resize");
@@ -157,11 +134,11 @@ pub fn handle_window_resize(
 
         let mut editor_g = editor.lock().unwrap();
 
-        let mut camera = editor_g.camera.expect("Couldn't get camera on resize");
+        let camera = editor_g.camera.expect("Couldn't get camera on resize");
 
         // println!("window 2 {:?}", camera.window_size);
 
-        let mut camera_binding = editor_g
+        let camera_binding = editor_g
             .camera_binding
             .as_mut()
             .expect("Couldn't get camera binding");
@@ -226,7 +203,7 @@ pub fn handle_modifiers_changed(
     viewport: std::sync::Arc<Mutex<Viewport>>,
 ) -> Option<Box<dyn FnMut(Modifiers)>> {
     Some(Box::new(move |modifiers: Modifiers| {
-        let mut editor_state = editor_state.lock().unwrap();
+        let editor_state = editor_state.lock().unwrap();
         println!("modifiers changed");
         let modifier_state = modifiers.state();
         // editor_state.current_modifiers = modifier_state;
@@ -243,7 +220,7 @@ pub fn handle_keyboard_input(
             return;
         }
 
-        let mut editor_state = editor_state.lock().unwrap();
+        let editor_state = editor_state.lock().unwrap();
         // let editor: MutexGuard<'_, Editor> = editor_state.editor.lock().unwrap();
         // Check for Ctrl+Z (undo)
         // let modifiers = editor_state.current_modifiers;
