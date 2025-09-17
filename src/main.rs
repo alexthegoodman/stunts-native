@@ -3266,9 +3266,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             .collect();
 
                                         for id in ids_to_update.clone() {
-                                            editor.update_polygon(id, "red", stunts_engine::editor::InputValue::Number(text_color_wgpu[0] as f32), false);
-                                            editor.update_polygon(id, "green", stunts_engine::editor::InputValue::Number(text_color_wgpu[1] as f32), false);
-                                            editor.update_polygon(id, "blue", stunts_engine::editor::InputValue::Number(text_color_wgpu[2] as f32), false);
+                                            editor.update_polygon(id, "red", stunts_engine::editor::InputValue::Number(text_color[0] as f32), false);
+                                            editor.update_polygon(id, "green", stunts_engine::editor::InputValue::Number(text_color[1] as f32), false);
+                                            editor.update_polygon(id, "blue", stunts_engine::editor::InputValue::Number(text_color[2] as f32), false);
                                         }
 
                                         // Update background for current sequence
